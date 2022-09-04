@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 import random
 import traceback
@@ -195,6 +196,10 @@ class VidBot(object):
         print(f"Upload failed with status code {req.status_code}")
         return None
 
+    def validate_json(self, json_body):
+        req = requests.post("https://app.ayrshare.com/validateJSON", headers={"Content-Type": "text/plain"}, data=json_body)
+        print(req.text)
+
     def upload_to_socials(self, media_upload: MediaUpload):
         """
         Send the video clip to TikTok via the API.
@@ -243,11 +248,15 @@ class VidBot(object):
         if "youtube" in self.platforms:
             post_data["youTubeOptions"] = {
                 "title": self.yt_vid.title,
-                "visibility": "public",
+                "visibility": "private",
                 "tags": keywords,
-                "shorts": True,
-                "playlistId": "PLZijj4Sp9E9h6pPK3N5NMDLcJ2i2eB-Gt"
+                # "shorts": True,
+                # "playListId": "PLZijj4Sp9E9h6pPK3N5NMDLcJ2i2eB-Gt"
             }
+
+            if "youtube" == self.platforms[0]:
+                post_data['post'] = "Repost!"  # self.yt_vid.description
+
         date_time = None
         if self.scheduled_date is not None:
             try:
@@ -261,6 +270,8 @@ class VidBot(object):
             post_data['scheduleDate'] = date_time.iso8601()
         else:
             date_time = maya.now()
+
+        self.validate_json(json_body=json.dumps(post_data))
 
         print(f"Post body: {post_data}")
 
@@ -479,7 +490,7 @@ def set_upload_schedule():
 @click.option('--description', '-d', "description", prompt="Description for the upload. Should also include hashtags.")
 @click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
               help="Force the post of the video, skipping duplicate checks.")
-@click.option('--schedule', '-s', "schedule", default=None,
+@click.option('--schedule', '-t', "schedule", default=None,
               help="Example: Tomorrow at 4:20 pm. If not specified, the video will be posted immediately.")
 @click.option('--platforms', '-p', "platforms", default="tiktok,instagram,facebook,twitter,youtube")
 def post(clip_id=None, description: str = None, skip_duplicate_check=False, schedule=None, platforms=None):
