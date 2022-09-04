@@ -1,5 +1,6 @@
 import datetime
 
+import maya
 from sqlalchemy.orm import backref
 
 from webapp.database import db, SqlModel, SurrogatePK, TimeMixin
@@ -42,14 +43,15 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
 
     api_id = db.Column(db.Text, nullable=False)
     platform = db.Column(db.Text, nullable=False)
-    post_url = db.Column(db.Text, nullable=False)
+    post_url = db.Column(db.Text, nullable=True)
 
-    post_time = db.Column(db.Text, nullable=False)
-    scheduled = db.Column(db.Boolean, default=False)
+    post_time = db.Column(db.DateTime, nullable=True)
 
     clip = db.relationship("VideoClip", backref=backref("posts", uselist=True), uselist=False)
     clip_id = db.Column(db.Integer, db.ForeignKey('video_clips.id'), nullable=True)
 
-    def __init__(self, api_id, platform, post_url, clip=None):
-        super().__init__(api_id=api_id, platform=platform, post_url=post_url, clip=clip,
+    def __init__(self, api_id, platform, post_time, post_url=None, clip=None):
+        super().__init__(api_id=api_id, platform=platform,
+                         post_time=maya.MayaDT.from_iso8601(post_time).datetime(),
+                         post_url=post_url, clip=clip,
                          clip_id=clip.id if clip else None)

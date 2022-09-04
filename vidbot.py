@@ -1,6 +1,7 @@
 import datetime
 import math
 import random
+import traceback
 from pathlib import Path
 
 import maya
@@ -221,14 +222,23 @@ class VidBot(object):
             "platforms": self.platforms,
             "media_urls": [media_upload.access_url],
             "isVideo": True,
-
         }
+
+        if "facebook" in self.platforms:
+            keyword_string = ""
+            for keyword in keywords:
+                keyword_string += f"#{keyword} "
+            post_data['faceBookOptions'] = {
+                "title": self.yt_vid.title,
+                "altText": keyword_string,
+                "mediaCaptions": keyword_string,
+            }
 
         if "instagram" in self.platforms:
             post_data["instagramOptions"] = {
-                                                "reels": True,
-                                                "shareReelsFeed": True,
-                                            },
+                "reels": True,
+                "shareReelsFeed": True,
+            }
 
         if "youtube" in self.platforms:
             post_data["youTubeOptions"] = {
@@ -238,11 +248,24 @@ class VidBot(object):
                 "shorts": True,
                 "playlistId": "PLZijj4Sp9E9h6pPK3N5NMDLcJ2i2eB-Gt"
             }
-
-        self.scheduled_date = self.find_next_slot(hours_difference=6)
-
+        date_time = None
         if self.scheduled_date is not None:
-            post_data["scheduleDate"] = self.scheduled_date
+            try:
+                date_time: maya.MayaDT = maya.when(self.scheduled_date, timezone="UTC")
+            except:
+                try:
+                    date_time: maya.MayaDT = maya.parse(self.scheduled_date, timezone="UTC")
+                except:
+                    date_time: maya.MayaDT = maya.MayaDT.from_iso8601(self.scheduled_date)
+
+            post_data['scheduleDate'] = date_time.iso8601()
+        else:
+            date_time = maya.now()
+
+        print(f"Post body: {post_data}")
+
+        if not click.prompt("Post?", default=True):
+            return
 
         resp = requests.post("https://app.ayrshare.com/api/post", headers={'Authorization': f'Bearer {api_key}'},
                              data=post_data)
@@ -256,16 +279,24 @@ class VidBot(object):
             if resp['status'] == 'scheduled':
                 print(f"Post scheduled for {self.scheduled_date}")
 
-            for entry in resp['postIds']:
-                if entry['status'] != 'success':
-                    print(f"Failed to post to {entry['platform']}")
-                    continue
+                for platform in self.platforms:
+                    post = SocialMediaPost(api_id=api_id, platform=platform, clip=media_upload.clip,
+                                           post_time=date_time.datetime(to_timezone="UTC"))
+                    post.save(commit=True)
+            elif resp['status'] == 'success':
+                if 'postIds' in resp.keys():
+                    for entry in resp['postIds']:
+                        if entry['status'] != 'success':
+                            print(f"Failed to post to {entry['platform']}")
+                            continue
 
-                post = SocialMediaPost(api_id=api_id, platform=entry['platform'], post_url=entry['postUrl'],
-                                       clip=media_upload.clip)
-                post.save(commit=True)
+                        post = SocialMediaPost(api_id=api_id, platform=entry['platform'], post_url=entry['postUrl'],
+                                               clip=media_upload.clip, post_time=date_time.datetime(to_timezone="UTC"))
+                        post.save(commit=True)
 
-                print(f"Posted to {entry['platform']} with post id {entry['postId']} @ {entry['postUrl']}")
+                        print(f"Posted to {entry['platform']} with post id {entry['postId']} @ {entry['postUrl']}")
+            else:
+                print(resp.text)
         else:
             print(f"Failed to post to socials with status code {resp.status_code}")
             print(f"Response: {resp.text}")
@@ -276,12 +307,25 @@ class VidBot(object):
         :return:
         """
 
-        posts_in_slot = SocialMediaPost.query.filter_by(post_time=self.scheduled_date).all()
+        # check if the slot is ok
+        if isinstance(self.scheduled_date, maya.MayaDT):
+            post_time = self.scheduled_date.datetime(to_timezone="UTC")
+        else:
+            try:
+                print(f"Parsing time: {self.scheduled_date}")
+                post_time = maya.when(self.scheduled_date, timezone="UTC")
+                print(f"Found post time: {post_time}")
+            except Exception as e:
+                print(f"Failed to parse time string '{self.scheduled_date}': {e}")
+                post_time = maya.parse(self.scheduled_date)
+                print(f"Parsed time: {post_time}")
+
+        posts_in_slot = SocialMediaPost.query.filter_by(post_time=post_time.datetime()).all()
 
         if len(posts_in_slot) >= 1:
             return False
 
-    def find_next_slot(self, hours_difference=4):
+    def find_next_slot(self, hours_difference=4, days=1):
         """
         Find the next available slot for the video to be posted.
         :return:
@@ -290,12 +334,24 @@ class VidBot(object):
         if self.is_slot_ok():
             return self.scheduled_date
 
-        post_time = maya.MayaDT.from_iso8601(self.scheduled_date)
-        posts_in_slot = SocialMediaPost.query.filter_by(post_time=self.scheduled_date).all()
+        # check if the slot is ok
+        if isinstance(self.scheduled_date, maya.MayaDT):
+            post_time = self.scheduled_date.datetime(to_timezone="UTC")
+        else:
+            try:
+                print(f"Parsing time: {self.scheduled_date}")
+                post_time = maya.when(self.scheduled_date, timezone="UTC")
+                print(f"Found post time: {post_time}")
+            except Exception as e:
+                print(f"Failed to parse time string '{self.scheduled_date}': {e}")
+                post_time = maya.parse(self.scheduled_date)
+                print(f"Parsed time: {post_time}")
+
+        posts_in_slot = SocialMediaPost.query.filter_by(post_time=post_time.datetime()).all()
 
         if len(posts_in_slot) >= 1:
-            post_time = post_time.add(hours=hours_difference)
-            self.scheduled_date = post_time.iso8601()
+            post_time = post_time.add(hours=hours_difference, days=days)
+            self.scheduled_date = post_time
             return self.find_next_slot(hours_difference=hours_difference)
 
         return self.scheduled_date
@@ -311,7 +367,7 @@ class VidBot(object):
 
         already_clipped = False
 
-        if os.path.exists(f"{self.output_filename}.mp4"):
+        if os.path.exists(f"{self.output_filename}.mp4") and self.subclip_start != -1:
             print("Video already exists, skipping download")
             self.downloaded = True
             self.video_path = f"{self.output_filename}.mp4"
@@ -333,8 +389,7 @@ class VidBot(object):
                                                                                             start_time=self.subclip_start,
                                                                                             duration=self.clip_length).first()
 
-        media_file = None  # db record
-
+        media_file = None
         if clip_record.upload is None:
             upload = click.prompt("Upload clip to social media? [Y/N] ", type=bool)
             if not upload:
@@ -353,9 +408,14 @@ class VidBot(object):
         try:
             self.upload_to_socials(media_file)
             print(
-                "Uploaded clip to YouTube, TikTok, Instagram, Facebook & Twitter! Open your TiKTok app to describe, hashtag & approve the upload.")
+                f"Uploaded clip to {','.join(self.platforms) if ',' in self.platforms else self.platforms} & Recorded this in the database!")
+
+            if "tiktok" in self.platforms:
+                print("Open your TiKTok app to describe, hashtag & approve the upload.")
 
         except Exception as e:
+            stack_trace = traceback.format_exc()
+            print(stack_trace)
             print(f"Failed to upload to socials: {e}")
 
 
@@ -381,14 +441,26 @@ def cli():
 @click.option("--description", "-d", "description", prompt="Description for the upload. Should also include hashtags.")
 @click.option('--force', '-f', "skip_duplicate_check", default=False,
               help="Force the post of the video, skipping duplicate cuts.")
-@click.option('--schedule', '-s', "schedule", is_flag=False, default=maya.now().iso8601(),
-              help="Example: 2022-09-05T00:30:00Z")
-@click.option('--platforms', '-p', "platforms", is_flag=False, default="tiktok,instagram,facebook,twitter,youtube")
+@click.option('--schedule', '-t', "schedule", default=None,
+              help="Example: tomorrow 10:00 am. If not specified, the video will be posted immediately.")
+@click.option('--platforms', '-p', "platforms", default="tiktok,instagram,facebook,twitter,youtube")
 def run(youtube_url: str, clip_length=33, skip_intro_time=0, output_filename: str = None, description: str = None,
         skip_duplicate_check=False, schedule=None, platforms=None):
+    """
+    Download a YouTube video, clip it and upload it to social media.
+    :param youtube_url:
+    :param clip_length:
+    :param skip_intro_time:
+    :param output_filename:
+    :param description:
+    :param skip_duplicate_check:
+    :param schedule:
+    :param platforms:
+    :return:
+    """
     bot = VidBot(youtube_url, clip_length=clip_length, skip_intro_time=skip_intro_time, output_filename=output_filename,
                  post_description=description, skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule,
-                 platforms=platforms)
+                 platforms=platforms.split(',') if "," in platforms else [platforms])
     bot.run()
 
 
@@ -407,9 +479,9 @@ def set_upload_schedule():
 @click.option('--description', '-d', "description", prompt="Description for the upload. Should also include hashtags.")
 @click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
               help="Force the post of the video, skipping duplicate checks.")
-@click.option('--schedule', '-s', "schedule", is_flag=False, default=maya.now().iso8601(),
-              help="Example: 2022-09-05T00:30:00Z")
-@click.option('--platforms', '-p', "platforms", is_flag=False, default="tiktok,instagram,facebook,twitter,youtube")
+@click.option('--schedule', '-s', "schedule", default=None,
+              help="Example: Tomorrow at 4:20 pm. If not specified, the video will be posted immediately.")
+@click.option('--platforms', '-p', "platforms", default="tiktok,instagram,facebook,twitter,youtube")
 def post(clip_id=None, description: str = None, skip_duplicate_check=False, schedule=None, platforms=None):
     clip = BotClip.query.filter_by(id=clip_id).first()
 
@@ -419,7 +491,8 @@ def post(clip_id=None, description: str = None, skip_duplicate_check=False, sche
 
     bot = VidBot(clip.url, clip_length=clip.duration, subclip_start=clip.start_time,
                  output_filename=f"clip_{clip_id}_repost", post_description=description,
-                 skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule, platforms=platforms)
+                 skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule,
+                 platforms=platforms.split(',') if "," in platforms else [platforms])
     bot.run()
 
 
