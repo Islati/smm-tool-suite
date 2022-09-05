@@ -28,6 +28,9 @@ social = SocialPost(api_key)
 
 # function to print all the hashtags in a text
 def extract_hashtags(text):
+    if text is None:
+        return []
+
     # initializing hashtag_list variable
     hashtag_list = []
 
@@ -54,13 +57,15 @@ class VidBot(object):
                  subclip_start=-1, scheduled_date=None,
                  post_title=None,
                  platforms=["tiktok", "instagram", "twitter", "facebook", "youtube"],
-                 application_config=DefaultConfig()):
+                 application_config=DefaultConfig(), already_clipped=False):
         """
         Initializes the VidBot class with the defined configuration.
-        If there's no youtube_video_download_link, then it will use the local_video_clip instead.
+        If there's no youtube_video_download_link, then it will use the tiktok_video_url instead.
+        If there's no tiktok_video_url, then it will use the local_video_clip_location instead.
         If there's no local_video_clip, then it will use the google_drive_link instead.
         If there's no link available at all it will not initialize.
         :param youtube_video_download_link:
+        :param tiktok_video_url: TikTok Video URL
         :param local_video_clip_location:
         :param clip_length:
         :param skip_intro_time:
@@ -109,6 +114,7 @@ class VidBot(object):
             self.post_title = self.tiktok_downloader.title
 
         self.application_config = application_config
+        self.already_clipped = already_clipped
 
     def is_local_video(self):
         """
@@ -205,10 +211,9 @@ class VidBot(object):
         # CHECK FOR DUPLICATE CLIPS IN DB **
         if self.check_for_duplicate_clips(start_time):
             print(f"Duplicate clip starting @ {start_time}s! Retrying...")
-            self.create_video_clip()
-            return
+            return self.create_video_clip()
         if self.clip_length == -1:
-            end_time = self.video.duration
+            self.clip_length = self.video.duration
             # write the entry to the db
             video_clip_record = BotClip(url=self.get_video_url(), title=self.post_title,
                                         start_time=start_time,
@@ -218,7 +223,6 @@ class VidBot(object):
             print(
                 f"Created database entry ({video_clip_record.id}) for video clip of {self.post_title} starting @ {start_time}s")
             return f"{self.output_filename}", video_clip_record
-
 
         end_time = start_time + self.clip_length
         print(f"Clipping video from {start_time}s to {end_time}s")
@@ -379,7 +383,6 @@ class VidBot(object):
 
         # post to each social platform one by one,
         for platform in self.platforms:
-            print(f"- Posting to {platform}...")
             post_data = {
                 "post": f"{self.post_description}",
                 "platforms": platform,
@@ -389,7 +392,8 @@ class VidBot(object):
                 "requiresApproval": False,
             }
 
-            # Match the platforms we're posting to with the default values for that platform.
+            # Match the platforms we're
+            # with the default values for that platform.
             match platform:
                 case "twitter":
                     if 'post' in platform_defaults['twitter'].keys():
@@ -409,15 +413,18 @@ class VidBot(object):
                         post_data['post'] = self.parse_tags(platform_defaults['youtube']['post'])
 
                     post_data["youTubeOptions"] = {
-                        "title": self.yt_vid.title[0:100],
+                        "title": self.post_title[0:100],
                         "post": post_data['post'],
                         "tags": self.compile_keywords(),
                         "visibility": platform_defaults['youtube']['visibility'] if 'visibility' in platform_defaults[
                             'youtube'].keys() else "public",
-                        "thumbNail": self.yt_vid.thumbnail_url,
+                        "thumbNail": self.yt_vid.thumbnail_url if self.youtube_video_download_link is not None else self.tiktok_downloader.thumbnail_url if self.tiktok_video_url is not None else None,
                         "madeForKids": False,
                         "shorts": True,
                     }
+
+                    if post_data['youTubeOptions']['thumbNail'] is None:
+                        del post_data['youTubeOptions']['thumbNail']
                 case "facebook":
                     keyword_string = ""
                     for keyword in self.compile_keywords():
@@ -427,11 +434,9 @@ class VidBot(object):
                         post_data['post'] = self.parse_tags(platform_defaults['facebook']['post'])
                     post_data['faceBookOptions'] = {
                         "title": self.parse_tags(platform_defaults['facebook']['title']),
-                        "altText": self.parse_tags(platform_defaults['facebook']['alt_text']),
-                        "mediaCaptions": self.parse_tags(platform_defaults['facebook']['media_captions']),
+                        "altText": self.parse_tags(platform_defaults['facebook']['altText']),
+                        "mediaCaptions": self.parse_tags(platform_defaults['facebook']['mediaCaptions']),
                     }
-
-            print(f"Posting to {platform} with data: {post_data}")
 
             # If there's a scheduled date set, process that value.
             if self.scheduled_date is not None:
@@ -445,21 +450,14 @@ class VidBot(object):
 
                 post_data['scheduleDate'] = date_time.iso8601()
 
-            print("Preparing to post to socials...")
             # Post the request to AYRShare.
             resp = requests.post("https://app.ayrshare.com/api/post", headers={'Authorization': f'Bearer {api_key}'},
                                  json=post_data)
-            print(resp)
-
             if resp.status_code == 200:
                 resp = resp.json()
-                print(resp)
                 api_id = resp['id']
-                print(f"Successfully posted to socials with API ID {api_id}")
 
                 if resp['status'] == 'scheduled':
-                    print(f"+ Post scheduled for {self.scheduled_date}")
-
                     post = SocialMediaPost(api_id=api_id, platform=platform, clip=media_upload.clip,
                                            post_time=date_time.datetime(
                                                to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow()
@@ -469,7 +467,7 @@ class VidBot(object):
                     if 'postIds' in resp.keys():
                         for entry in resp['postIds']:
                             if entry['status'] != 'success':
-                                print(f"Failed to post to {entry['platform']}")
+                                print(f"!! Failed to post to {entry['platform']}")
                                 continue
 
                             post = SocialMediaPost(api_id=api_id, platform=entry['platform'],
@@ -477,10 +475,8 @@ class VidBot(object):
                                                    clip=media_upload.clip, post_time=date_time.datetime(
                                     to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow())
                             post.save(commit=True)
+                            print("+ Posted to " + entry['platform'])
 
-                            print(f"Posted to {entry['platform']} with post id {entry['postId']} @ {post.post_url}")
-                else:
-                    print(resp.text)
             else:
                 print(f"Failed to post to socials with status code {resp.status_code}")
                 print(f"Response: {resp.text}")
@@ -496,13 +492,9 @@ class VidBot(object):
             post_time = self.scheduled_date.datetime(to_timezone="UTC")
         else:
             try:
-                print(f"Parsing time: {self.scheduled_date}")
                 post_time = maya.when(self.scheduled_date, timezone="UTC")
-                print(f"Found post time: {post_time}")
             except Exception as e:
-                print(f"Failed to parse time string '{self.scheduled_date}': {e}")
                 post_time = maya.parse(self.scheduled_date)
-                print(f"Parsed time: {post_time}")
 
         posts_in_slot = SocialMediaPost.query.filter_by(post_time=post_time.datetime()).all()
 
@@ -523,13 +515,9 @@ class VidBot(object):
             post_time = self.scheduled_date.datetime(to_timezone="UTC")
         else:
             try:
-                print(f"Parsing time: {self.scheduled_date}")
                 post_time = maya.when(self.scheduled_date, timezone="UTC")
-                print(f"Found post time: {post_time}")
             except Exception as e:
-                print(f"Failed to parse time string '{self.scheduled_date}': {e}")
                 post_time = maya.parse(self.scheduled_date)
-                print(f"Parsed time: {post_time}")
 
         posts_in_slot = SocialMediaPost.query.filter_by(post_time=post_time.datetime()).all()
 
@@ -549,30 +537,11 @@ class VidBot(object):
         :return:
         """
 
-        already_clipped = False
-
-        if self.is_video_file(self.output_filename) and self.subclip_start != -1:
-            print("Video already exists, skipping download")
-            self.downloaded = True
-            self.video_path = self.output_filename
-            already_clipped = True
-
-        if not self.downloaded:
+        if not self.downloaded and (self.youtube_video_download_link is not None or self.tiktok_video_url is not None):
             self.download_video()
-        self.video = VideoFileClip(self.video_path)
-        self.downloaded = True
 
         clip_path, clip_record = None, None
-        if not already_clipped:
-            print(f"Downloaded {self.post_title} to {self.video_path} (duration: {self.video.duration})")
-            print("Creating video clip!")
-            clip_path, clip_record = self.create_video_clip()
-            print(f"Created video clip: {clip_path}")
-        else:
-            clip_path, clip_record = self.output_filename, BotClip.query.filter_by(
-                url=self.get_video_url(),
-                start_time=self.subclip_start,
-                duration=self.clip_length).first()
+        clip_path, clip_record = self.create_video_clip()
 
         media_file = None
         if clip_record.upload is None:
@@ -612,15 +581,14 @@ def cli():
 
 
 @cli.command()
-@click.option('--yt', '-y', 'youtube_video_download_link', type=str, default=None)
+@click.option('--yt', '-yt', 'youtube_video_download_link', type=str, default=None)
 @click.option('--tiktok', '-tik', 'tiktok_video_link', type=str, required=False, default=None)
 @click.option('--local', "local_video_path", type=str, default=None, required=False)
-@click.option('--length', '-l', "clip_length", default=-1, help="Length of the clip in seconds",
-              prompt="Length of the clip in seconds")
+@click.option('--length', '-l', "clip_length", default=-1, help="Length of the clip in seconds")
 @click.option('--skip', '-s', "skip_intro_time", default=0, help="Skip the first x seconds of the video")
 @click.option('--output', '-o', "output_filename", default=f"{datetime.datetime.utcnow().timestamp()}",
               help="Output path for the video clip", prompt="Filename for your clip")
-@click.option("--description", "-d", "description",default=None, help="Description for the post.")
+@click.option("--description", "-d", "description", default=None, help="Description for the post.")
 @click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
               help="Force the post of the video, skipping duplicate cuts.")
 @click.option('--schedule', '-t', "schedule", default=None,
@@ -676,7 +644,7 @@ def set_upload_schedule():
         'title': 'default',
         'setStartDate': '2022-09-04:00:00Z',
     })
-    print(resp)
+    click.echo(resp)
 
 
 @cli.command('tiktok_download')
@@ -732,15 +700,24 @@ def redo_clip(clip_id=None, description: str = None, skip_duplicate_check=False,
 
     clip_url = clip.url
 
-    if "http" not in clip_url or "youtube" not in clip_url:
-        click.echo("Unable to repost (redo) this clip. It was not created from a youtube video.")
-        exit(0)
+    if "http" not in clip_url:
+        click.echo("Clips need to be recreated from the original video.")
         return
 
-    bot = VidBot(youtube_video_download_link=clip.url, clip_length=clip.duration, subclip_start=clip.start_time,
+    if "tiktok" not in clip_url and "youtube" not in clip_url:
+        click.echo("Requires either a TikTok or YouTube url for the clip")
+        return
+
+    tiktok = "tiktok" in clip_url
+    youtube = "youtube" in clip_url
+
+    bot = VidBot(youtube_video_download_link=clip.url if youtube else None,
+                 tiktok_video_url=clip.url if tiktok else None, clip_length=clip.duration,
+                 subclip_start=clip.start_time,
                  output_filename=f"clip_{clip_id}_repost.mp4", post_description=description,
                  skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule,
-                 platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title)
+                 platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title,
+                 already_clipped=True)
     bot.run()
 
 
