@@ -8,7 +8,9 @@ from pathlib import Path
 
 import maya
 import requests
+from moviepy.config import get_setting
 from moviepy.editor import *
+from moviepy.tools import subprocess_call
 from pytube import YouTube
 from pytube.cli import on_progress
 import click
@@ -44,6 +46,23 @@ def extract_hashtags(text):
     return hashtag_list
 
 
+def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
+    """ Makes a new video file playing video file ``filename`` between
+        the times ``t1`` and ``t2``. """
+    name, ext = os.path.splitext(filename)
+    if not targetname:
+        T1, T2 = [int(1000 * t) for t in [t1, t2]]
+        targetname = "%sSUB%d_%d.%s" % (name, T1, T2, ext)
+
+    cmd = [get_setting("FFMPEG_BINARY"), "-y",
+           "-i", filename,
+           "-ss", "%0.2f" % t1,
+           "-t", "%0.2f" % (t2 - t1),
+           "-map", "0", "-vcodec", "copy", "-acodec", "copy", targetname]
+
+    subprocess_call(cmd)
+
+
 class VidBot(object):
     """
     Handles the automated process of downloading, chopping, and uploading said video.
@@ -57,7 +76,7 @@ class VidBot(object):
                  subclip_start=-1, scheduled_date=None,
                  post_title=None,
                  platforms=["tiktok", "instagram", "twitter", "facebook", "youtube"],
-                 application_config=DefaultConfig(), already_clipped=False):
+                 application_config=DefaultConfig(), already_clipped=False, ffmpeg=False):
         """
         Initializes the VidBot class with the defined configuration.
         If there's no youtube_video_download_link, then it will use the tiktok_video_url instead.
@@ -115,6 +134,7 @@ class VidBot(object):
 
         self.application_config = application_config
         self.already_clipped = already_clipped
+        self.ffmpeg = ffmpeg
 
     def is_local_video(self):
         """
@@ -229,31 +249,37 @@ class VidBot(object):
         print(f"Clipping video from {start_time}s to {end_time}s")
         # Create & save the clip
 
-        self.clip = self.video.subclip(start_time, end_time)
-        audio_clip = self.video.audio.subclip(start_time, end_time)
+        if self.ffmpeg:
+            ffmpeg_extract_subclip(self.output_filename, start_time, end_time, targetname=f"sub_{self.output_filename}")
+            self.output_filename = f"sub_{self.output_filename}"
+            print("New filename: ", self.output_filename)
+            # write the entry to the db
+        else:
+            self.clip = self.video.subclip(start_time, end_time)
+            audio_clip = self.video.audio.subclip(start_time, end_time)
 
-        self.clip = self.clip.set_audio(audio_clip)
-        self.clip.write_videofile(f"{self.output_filename}",
-                                  temp_audiofile=f"{self.output_filename.replace('.', '_')}_tempaudio.m4a",
-                                  codec="libx264",
-                                  audio_codec="aac", remove_temp=False)
-        self.clip.close()
-        # invoke ffmpeg to append audio subclip.
-        import subprocess as sp
-        command = ['ffmpeg',
-                   '-y',  # approve output file overwite
-                   '-i', f"{self.output_filename}",
-                   '-i', f"{self.output_filename.replace('.', '_')}_tempaudio.m4a",
-                   '-c:v', 'copy',
-                   '-c:a', 'aac',  # to convert mp3 to aac
-                   '-shortest',
-                   f"{self.output_filename}"]
+            self.clip = self.clip.set_audio(audio_clip)
+            self.clip.write_videofile(f"{self.output_filename}",
+                                      temp_audiofile=f"{self.output_filename.replace('.', '_')}_tempaudio.m4a",
+                                      codec="libx264",
+                                      audio_codec="aac", remove_temp=False)
+            self.clip.close()
+            # invoke ffmpeg to append audio subclip.
+            import subprocess as sp
+            command = ['ffmpeg',
+                       '-y',  # approve output file overwite
+                       '-i', f"{self.output_filename}",
+                       '-i', f"{self.output_filename.replace('.', '_')}_tempaudio.m4a",
+                       '-c:v', 'copy',
+                       '-c:a', 'aac',  # to convert mp3 to aac
+                       '-shortest',
+                       f"{self.output_filename}"]
 
-        print(f"Running command: {' '.join(command)}")
-        process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
-        process.wait()
+            print(f"Running command: {' '.join(command)}")
+            process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
+            process.wait()
 
-        # write the entry to the db
+            # write the entry to the db
         video_clip_record = BotClip(url=self.get_video_url(), title=self.post_title,
                                     start_time=start_time,
                                     duration=self.clip_length)
@@ -407,6 +433,7 @@ class VidBot(object):
                         post_data['post'] = self.parse_tags(platform_defaults['twitter']['post'])[0:280]
                     if self.is_image_file(self.output_filename):
                         post_data['image_alt_text'] = self.parse_tags(platform_defaults['twitter']['image_alt_text'])
+                    post_data['post'] = post_data['post'][0:280]
                 case "instagram":
                     if 'post' in platform_defaults['instagram'].keys():
                         post_data['post'] = self.parse_tags(platform_defaults['instagram']['post'])[0:2200]
@@ -457,6 +484,9 @@ class VidBot(object):
 
                 post_data['scheduleDate'] = date_time.iso8601()
 
+            if platform == "twitter":
+                post_data['post'] = post_data['post'][0:260]
+                print('post data trimmed to  {}'.format(len(post_data['post'])))
             # Post the request to AYRShare.
             resp = requests.post("https://app.ayrshare.com/api/post", headers={'Authorization': f'Bearer {api_key}'},
                                  json=post_data)
@@ -606,12 +636,14 @@ def cli():
 @click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
 @click.option('--start', '-st', 'start_time', required=False, default=-1,
               help="Start time of the clip (default random start time)")
+@click.option('--fmpeg', '-fm', 'ffmpeg', required=False, default=False, help="Use ffmpeg to cut the video",
+              is_flag=True)
 def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_video_path=None, clip_length=33,
          skip_intro_time=0,
          output_filename: str = None,
          description: str = None,
          start_time: int = None,
-         skip_duplicate_check=False, schedule=None, platforms=None, title=None):
+         skip_duplicate_check=False, schedule=None, platforms=None, title=None, ffmpeg=False):
     """
     Chop a video and post it on social media.
     :param youtube_video_download_link: Youtube video link.
@@ -642,7 +674,7 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
                  output_filename=output_filename,
                  subclip_start=start_time,
                  post_description=description, skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule,
-                 platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title)
+                 platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title, ffmpeg=ffmpeg)
     bot.run()
 
 
