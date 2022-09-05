@@ -30,7 +30,8 @@ class DefaultConfig(object):
              vidbot: vidbot.yt_vid.description if vidbot.youtube_video_download_link is not None else vidbot.tiktok_downloader.title if vidbot.tiktok_downloader is not None else ""),
         ('[title]',
          lambda vidbot: vidbot.yt_vid.title if vidbot.youtube_video_download_link is not None else vidbot.post_title),
-        ('[keywords]', lambda vidbot: vidbot.yt_vid.hashtags),
+        ('[keywords]', lambda vidbot: vidbot.compile_keywords()),
+        ('[hashtags]', lambda vidbot: vidbot.compile_hashtag_string()),
         ('[ytthumbnail]', lambda vidbot: vidbot.yt_vid.thumbnail_url),
         ('[desc]', lambda vidbot: vidbot.post_description),
         ('[reddit-post-title]', lambda vidbot: vidbot.reddit_post.title if vidbot.reddit_post is not None else "")
@@ -38,20 +39,20 @@ class DefaultConfig(object):
 
     PLATFORM_DEFAULTS = {
         'twitter': {
-            'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Retweet \n\n[desc]',
+            'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Retweet \n\n[desc] [hashtags]',
             'image_alt_text': "[title]"
         },
         'instagram': {
-            'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Comment\n[desc]',
+            'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Comment\n[desc] [hashtags]',
         },
         'youtube': {
             'post': '🎶 Music @ http://skreet.ca 🔗 Like, Subscribe & Share \n[viddesc]\n[desc]',
             'visibility': "public",
         },
         "facebook": {
-            'post': '🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [desc]',
+            'post': '🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [desc] [hashtags]',
             'title': '[title]',
             'altText': '[title]',
-            'mediaCaptions': '🎶 Music @ http://skreet.ca 🔗 Like, Subscribe & Share [viddesc]\n\n[desc]'
+            'mediaCaptions': '🎶 Music @ http://skreet.ca 🔗 Like, Subscribe & Share [viddesc]\n\n[desc] [hashtags]'
         }
     }

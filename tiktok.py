@@ -1,3 +1,5 @@
+import os
+
 import requests
 
 API_BASE_URL = "https://api.douyin.wtf/api?url="
@@ -16,6 +18,9 @@ class TikTokDownloader(object):
         return self.data["video_hashtags"]
 
     def download_video(self):
+        if os.path.exists(self.output_filename):
+            os.remove(self.output_filename)
+            print("~ Removed old download {}".format(self.output_filename))
         with open(f"{self.output_filename}", "wb") as f:
             f.write(requests.get(
                 self.data["nwm_video_url"] if self.watermark is False else self.data['wm_video_url']).content)

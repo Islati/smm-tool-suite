@@ -153,7 +153,8 @@ class VidBot(object):
         :return: path of the video downloaded
         """
         if self.youtube_video_download_link is not None:
-            path = self.yt_vid.streams.filter(progressive=True).get_highest_resolution().download()
+            path = self.yt_vid.streams.filter(progressive=True).get_highest_resolution().download(
+                filename=self.output_filename)
             self.downloaded = True
             self.video_path = path
             self.video = VideoFileClip(path)
@@ -221,7 +222,7 @@ class VidBot(object):
             video_clip_record.save(commit=True)
 
             print(
-                f"Created database entry ({video_clip_record.id}) for video clip of {self.post_title} starting @ {start_time}s")
+                f"Created database entry ({video_clip_record.id}) for video clip of {self.output_filename} starting @ {start_time}s")
             return f"{self.output_filename}", video_clip_record
 
         end_time = start_time + self.clip_length
@@ -337,6 +338,12 @@ class VidBot(object):
 
         keywords = list(set(keywords))
         return keywords
+
+    def compile_hashtag_string(self):
+        _str = ""
+        for keyword in self.compile_keywords():
+            _str += f"#{keyword} "
+        return _str
 
     def is_image_file(self, file):
         return mimetypes.guess_type(file)[0].startswith('image')
@@ -463,6 +470,8 @@ class VidBot(object):
                                                to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow()
                                            )
                     post.save(commit=True)
+                    print("+ Scheduled on " + platform + " for " + self.scheduled_date)
+
                 elif resp['status'] == 'success':
                     if 'postIds' in resp.keys():
                         for entry in resp['postIds']:
@@ -661,6 +670,10 @@ def tiktok_download(url, output_filename):
 
 @cli.command('clips')
 def clips():
+    """
+    View the clips that have been created.
+    :return:
+    """
     clips = BotClip.query.all()
     click.echo(f"Clips Edited: {len(clips)}")
     click.echo("---------------")
@@ -719,6 +732,97 @@ def redo_clip(clip_id=None, description: str = None, skip_duplicate_check=False,
                  platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title,
                  already_clipped=True)
     bot.run()
+
+
+@cli.command('history')
+@click.option('--last-days', '-d', "last_days", default=30, help="Number of days to look back.")
+@click.option('--last-records', '-r', "last_records", default=100, help="Number of records to look back.")
+def history(last_days, last_records):
+    """
+    View post history from the Ayrshare api (messy)
+    :param last_days:
+    :param last_records:
+    :return:
+    """
+    req = requests.get('https://app.ayrshare.com/api/history',
+                       params={'lastDays': last_days, 'lastRecords': last_records},
+                       headers={'Authorization': f'Bearer {api_key}'})
+
+    from pprint import pprint
+    pprint(req.json())
+
+
+@cli.command('post_info')
+@click.option('--clip-id', '-c', "clip_id", default=None, help="Post ID to get info for.")
+@click.option('--video-url', '-v', "video_url", default=None, help="Video URL to get info for.")
+def post_info(clip_id=None, video_url=None, print_intro_header=True):
+    """
+    View information about a post via its clip id (acquired using the clips command) or video url.
+    :param clip_id:
+    :param video_url:
+    :return:
+    """
+    if clip_id is None and video_url is None:
+        click.echo("Please provide a clip id or video url")
+        return
+
+    if "," in clip_id:
+        print(f"---- CLIP POST INFORMATION ----")
+        print('[PLATFORM] | [TYPE] | [POST ID] | [STATUS] | [CREATED] | [SCHEDULE_DATE] | [POST] | [URL]')
+        for clip_id in clip_id.split(","):
+            clip = BotClip.query.filter_by(id=clip_id).first()
+
+            posts_with_clip = SocialMediaPost.query.filter_by(clip_id=clip.id).all()
+            if posts_with_clip is None or len(posts_with_clip) == 0:
+                continue
+
+            for post in posts_with_clip:
+                req = requests.get(f'https://app.ayrshare.com/api/history/{post.api_id}',
+                                   headers={'Authorization': f'Bearer {api_key}'})
+                resp = req.json()
+                post_url = post.post_url
+                if post_url is None:
+                    try:
+                        post_url = resp['postIds'][0]['postUrl']
+                    except:
+                        pass
+                print(
+                    f"{post.platform} | {resp['type']} | {resp['id']} | {resp['status']} | {resp['created']} | {resp['scheduleDate']['utc'] if 'scheduleDate' in resp.keys() else 'N/A'} | ... | {post_url}")
+
+        print('---------------------------------')
+
+    clip = None
+
+    if video_url is not None:
+        clip = BotClip.query.filter_by(url=video_url).first()
+
+    if clip_id is not None:
+        clip = BotClip.query.filter_by(id=clip_id).first()
+
+    if clip is None:
+        click.echo(f"Could not find clip with id {clip_id} or url {video_url}")
+        return
+
+    posts_with_clip = SocialMediaPost.query.filter_by(clip_id=clip.id).all()
+    if posts_with_clip is None or len(posts_with_clip) == 0:
+        click.echo(f"Could not find any posts with clip id {clip_id}")
+        return
+
+    if print_intro_header:
+        print(f"---- CLIP POST INFORMATION ----")
+        print('[PLATFORM] | [TYPE] | [POST ID] | [STATUS] | [CREATED] | [SCHEDULE_DATE] | [POST] | [URL]')
+    ids = []
+    for post in posts_with_clip:
+        ids.append(post.api_id)
+
+        req = requests.get(f'https://app.ayrshare.com/api/history/{post.api_id}',
+                           headers={'Authorization': f'Bearer {api_key}'})
+        resp = req.json()
+        print(
+            f"{post.platform} | {resp['type']} | {resp['id']} | {resp['status']} | {resp['created']} | {resp['scheduleDate']['utc'] if 'scheduleDate' in resp.keys() else 'N/A'} | {resp['post']} | {post.post_url if post.post_url is not None else resp['postIds'][0]['postUrl'] if 'postIds' in resp.keys() else 'N/A'}")
+
+    if print_intro_header:
+        print('----------------------------------')
 
 
 if __name__ == '__main__':
