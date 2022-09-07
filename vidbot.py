@@ -156,6 +156,27 @@ class VidBot(object):
 
         return False
 
+    def check_for_duplicate_images(self, image_url, local_url):
+        """
+        Check whether or not the image is a duplicate.
+        :param image_url: Image URL
+        :param local_url: Local URL
+        :return:
+        """
+        if image_url is not None:
+            image = ImageDb.query.filter_by(url=image_url).first()
+
+            if image is not None:
+                return True
+
+        if local_url is not None:
+            image = ImageDb.query.filter_by(local_url=local_url).first()
+
+            if image is not None:
+                return True
+
+        return False
+
     def check_for_duplicate_clips(self, start_time: int):
         """
         Checks if the video clip already exists in the database by comparing start times.
@@ -359,7 +380,7 @@ class VidBot(object):
         if image_file is not None:
             media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
                                        content_type=upload_request_response['contentType'],
-                                       upload_url=upload_request_response['uploadUrl'],image=image_file)
+                                       upload_url=upload_request_response['uploadUrl'], image=image_file)
         else:
             media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
                                        content_type=upload_request_response['contentType'],
@@ -637,6 +658,13 @@ class VidBot(object):
             print(f"Downloaded Image to {self.output_filename}")
             self.downloaded = True
 
+        if not self.skip_duplicate_check:
+            duplicate = self.check_for_duplicate_images(self.image_url,self.local_image_location)
+
+            if duplicate:
+                print(f"Duplicate image found, skipping post.")
+                return
+
         media_upload = self.upload_file_to_cloud(
             image_file=self.local_image_location if self.local_image_location is not None else self.output_filename)
 
@@ -766,7 +794,7 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
         return
 
     bot = VidBot(youtube_video_download_link=youtube_video_download_link, tiktok_video_url=tiktok_video_link,
-                 local_video_clip_location=local_video_path,
+                 local_video_clip_location=os.path.expanduser(local_video_path),
                  clip_length=clip_length,
                  skip_intro_time=skip_intro_time,
                  output_filename=output_filename,
@@ -779,8 +807,8 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
 @cli.command()
 @click.option('--image', '-i', 'image_link', type=str, required=False, default=None, help="Image link")
 @click.option('--local', "local_image_file", type=str, default=None, required=False, help="Local image path")
-@click.option('--output', '-o', "output_filename", default=f"{datetime.datetime.utcnow().timestamp()}",
-              help="Output path for the video clip", prompt="Output Filename for your image")
+@click.option('--output', '-o', "output_file_name", default=None,
+              help="Output path for the video clip")
 @click.option("--description", "-d", "description", default=None, help="Description for the post.")
 @click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
               help="Force the post of the video, skipping duplicate cuts.")
@@ -790,12 +818,25 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
 @click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
 def image(image_link, local_image_file, output_file_name, post_description, skip_duplicate_check, scheduled_date,
           platforms, post_title):
+    """
+    Crate an image post on social media.
+    :param image_link: link to the image (online)
+    :param local_image_file: local image location
+    :param output_file_name: output file name (for downloaded file)
+    :param post_description: post body.
+    :param skip_duplicate_check:
+    :param scheduled_date:
+    :param platforms:
+    :param post_title:
+    :return:
+    """
     if 'youtube' in platforms or 'tiktok' in platforms:
         click.echo("You can't post an image to Youtube or TikTok")
         return
 
     bot = VidBot(
-        image_url=image_link, local_image_location=local_image_file, output_filename=output_file_name,
+        image_url=image_link, local_image_location=os.path.expanduser(local_image_file),
+        output_filename=output_file_name,
         post_description=post_description,
         skip_duplicate_check=skip_duplicate_check, scheduled_date=scheduled_date,
         platforms=platforms.split(',') if "," in platforms else [platforms], post_title=post_title
@@ -806,6 +847,10 @@ def image(image_link, local_image_file, output_file_name, post_description, skip
 
 @cli.command('set_upload_schedule')
 def set_upload_schedule():
+    """
+    Set the upload 'auto-post' schedule. Requires modification of the code to change.
+    :return:
+    """
     resp = social.setAutoSchedule({
         'schedule': ['00:00Z', '12:00Z', '16:20Z', '19:00Z', '21:00Z'],
         'title': 'default',
@@ -818,6 +863,11 @@ def set_upload_schedule():
 @click.argument('url')
 @click.argument("output_filename")
 def tiktok_download(url, output_filename):
+    """
+    Download a video from TikTok (Without watermark)
+    :param url: tiktok video url
+    :param output_filename: local file output
+    """
     if "." not in output_filename:
         click.echo("Please provide a filename with an extension")
         return
@@ -829,7 +879,7 @@ def tiktok_download(url, output_filename):
 @cli.command('images')
 def images():
     images_uploaded = ImageDb.query.all()
-    click.echo(f"Images Reposted: {len(images_uploaded)}")
+    click.echo(f"Images: {len(images_uploaded)}")
 
     if len(images_uploaded) == 0:
         return
