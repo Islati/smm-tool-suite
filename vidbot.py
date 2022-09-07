@@ -74,6 +74,7 @@ class VidBot(object):
     def __init__(self, youtube_video_download_link: str = None, local_video_clip_location: Path = None,
                  tiktok_video_url=None,
                  image_url=None,
+                 local_image_location: Path = None,
                  google_drive_link: str = None, clip_length: int = -1,
                  skip_intro_time: int = 0,
                  output_filename: str = None, post_description: str = None, skip_duplicate_check: bool = False,
@@ -104,6 +105,7 @@ class VidBot(object):
             self.yt_vid: YouTube = YouTube(youtube_video_download_link, on_progress_callback=on_progress)
 
         self.image_url = image_url
+        self.local_image_location = local_image_location
         self.tiktok_video_url = tiktok_video_url
         self.tiktok_downloader: TikTokDownloader = None
         if self.tiktok_video_url is not None:
@@ -357,7 +359,7 @@ class VidBot(object):
         if image_file is not None:
             media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
                                        content_type=upload_request_response['contentType'],
-                                       upload_url=upload_request_response['uploadUrl'])
+                                       upload_url=upload_request_response['uploadUrl'],image=image_file)
         else:
             media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
                                        content_type=upload_request_response['contentType'],
@@ -624,7 +626,7 @@ class VidBot(object):
         :return:
         """
 
-        if not self.downloaded:
+        if not self.downloaded and self.local_image_location is None:
             print(f"Downloading Image from {self.image_url}")
             self.download_image()
 
@@ -633,16 +635,23 @@ class VidBot(object):
                 return
 
             print(f"Downloaded Image to {self.output_filename}")
+            self.downloaded = True
 
-        media_upload = self.upload_file_to_cloud(image_file=self.output_filename)
+        media_upload = self.upload_file_to_cloud(
+            image_file=self.local_image_location if self.local_image_location is not None else self.output_filename)
 
         if click.prompt("Proceed with posting socials?", type=bool, default=True):
             self.post_to_socials(media_upload=media_upload)
             print(
                 f"Uploaded image to {','.join(self.platforms) if ',' in self.platforms else self.platforms}")
 
-        os.remove(self.output_filename)
-        print("~ Files Cleaned Up. Exiting...")
+        if self.local_image_location is not None:
+            if click.prompt("Delete local image?", type=bool, default=False):
+                os.remove(self.local_image_location)
+
+        if self.output_filename is not None:
+            os.remove(self.output_filename)
+        print("~ Exiting...")
         return
 
     def chop_and_post_video(self):
@@ -769,7 +778,7 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
 
 @cli.command()
 @click.option('--image', '-i', 'image_link', type=str, required=False, default=None, help="Image link")
-@click.option('--local', "local_video_path", type=str, default=None, required=False, help="Local image path")
+@click.option('--local', "local_image_file", type=str, default=None, required=False, help="Local image path")
 @click.option('--output', '-o', "output_filename", default=f"{datetime.datetime.utcnow().timestamp()}",
               help="Output path for the video clip", prompt="Output Filename for your image")
 @click.option("--description", "-d", "description", default=None, help="Description for the post.")
@@ -779,14 +788,18 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
               help="Example: tomorrow 10:00 am. If not specified, the video will be posted immediately.")
 @click.option('--platforms', '-p', "platforms", default="instagram,facebook,twitter")
 @click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
-def image(image_link, output_file_name, post_description, skip_duplicate_check, scheduled_date, platforms, post_title):
+def image(image_link, local_image_file, output_file_name, post_description, skip_duplicate_check, scheduled_date,
+          platforms, post_title):
     if 'youtube' in platforms or 'tiktok' in platforms:
         click.echo("You can't post an image to Youtube or TikTok")
         return
 
-    bot = VidBot(image_url=image_link, output_filename=output_file_name, post_description=post_description,
-                 skip_duplicate_check=skip_duplicate_check, scheduled_date=scheduled_date,
-                 platforms=platforms.split(',') if "," in platforms else [platforms], post_title=post_title)
+    bot = VidBot(
+        image_url=image_link, local_image_location=local_image_file, output_filename=output_file_name,
+        post_description=post_description,
+        skip_duplicate_check=skip_duplicate_check, scheduled_date=scheduled_date,
+        platforms=platforms.split(',') if "," in platforms else [platforms], post_title=post_title
+    )
 
     bot.post_image()
 
