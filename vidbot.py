@@ -1,9 +1,8 @@
 import datetime
-import json
 import math
 import mimetypes
 import random
-import traceback
+import shutil
 from pathlib import Path
 
 import maya
@@ -14,10 +13,11 @@ from moviepy.tools import subprocess_call
 from pytube import YouTube
 from pytube.cli import on_progress
 import click
+from tabulate import tabulate
 
 from tiktok import TikTokDownloader
-from webapp.models import VideoClip as BotClip, MediaUpload, SocialMediaPost
-from config import DefaultConfig
+from webapp.models import VideoClip as BotClip, MediaUpload, SocialMediaPost, ImageDb
+from webapp.config import DefaultConfig
 from ayrshare import SocialPost
 
 import gdown
@@ -28,6 +28,7 @@ social = SocialPost(api_key)
 
 # todo implement file cleanup.
 # todo implement feeds to download images from & repost them
+# implement instagram reel download & repost to platforms.
 
 
 # function to print all the hashtags in a text
@@ -72,6 +73,7 @@ class VidBot(object):
 
     def __init__(self, youtube_video_download_link: str = None, local_video_clip_location: Path = None,
                  tiktok_video_url=None,
+                 image_url=None,
                  google_drive_link: str = None, clip_length: int = -1,
                  skip_intro_time: int = 0,
                  output_filename: str = None, post_description: str = None, skip_duplicate_check: bool = False,
@@ -83,6 +85,7 @@ class VidBot(object):
         Initializes the VidBot class with the defined configuration.
         :param youtube_video_download_link: Youtube video download link
         :param tiktok_video_url: TikTok Video URL
+        :param image_url: Image URL (Used only for reposting images)
         :param local_video_clip_location: local video file to open for chopping
         :param google_drive_link: Google Drive link to download the video from
         :param clip_length: length of clip to create
@@ -100,6 +103,7 @@ class VidBot(object):
         if youtube_video_download_link is not None:
             self.yt_vid: YouTube = YouTube(youtube_video_download_link, on_progress_callback=on_progress)
 
+        self.image_url = image_url
         self.tiktok_video_url = tiktok_video_url
         self.tiktok_downloader: TikTokDownloader = None
         if self.tiktok_video_url is not None:
@@ -171,6 +175,20 @@ class VidBot(object):
                 return True
         return False
 
+    def download_image(self):
+        """
+        Downloads the image from the URL
+        :return:
+        """
+        r = requests.get(self.image_url, stream=True)
+        if r.status_code == 200:
+            with open(self.output_filename, 'wb') as f:
+                r.raw.decode_content = True
+                shutil.copyfileobj(r.raw, f)
+                return self.output_filename
+
+        return None
+
     def download_video(self):
         """
         Downloads the highest possible quality video for creating the clip.
@@ -195,9 +213,12 @@ class VidBot(object):
 
         if self.google_drive_link is not None:
             gdown.download(self.google_drive_link, self.output_filename, quiet=False)
-            self.video_path = self.output_filename
-            self.video = VideoFileClip(self.output_filename)
-            self.audio = self.video.audio
+            if self.is_video_file(self.output_filename):
+                self.video_path = self.output_filename
+                self.video = VideoFileClip(self.output_filename)
+                self.audio = self.video.audio
+            else:
+                print(f"~ Downloaded {self.output_filename} is not a video file.")
             return self.output_filename
 
         return None
@@ -318,22 +339,29 @@ class VidBot(object):
         """
         return random.randint(0 + self.skip_intro_time, math.floor(self.video.duration - self.clip_length))
 
-    def upload_file_to_cloud(self, video_clip: VideoClip):
+    def upload_file_to_cloud(self, video_clip: VideoClip = None, image_file=None):
         """
         Uploads the video clip to social media via the API.
         :return:
         """
+        assert video_clip is not None or image_file is not None, "No video clip or image file provided to upload."
+
         # retrieve the information
         req = requests.get("https://app.ayrshare.com/api/media/uploadUrl",
                            headers={'Authorization': f'Bearer {api_key}'},
-                           params={'contentType': mimetypes.guess_type(self.output_filename),
+                           params={'contentType': mimetypes.guess_type(self.output_filename)[0],
                                    'fileName': f"{self.output_filename}"})
 
         upload_request_response = req.json()
 
-        media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
-                                   content_type=upload_request_response['contentType'],
-                                   upload_url=upload_request_response['uploadUrl'], clip=video_clip)
+        if image_file is not None:
+            media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
+                                       content_type=upload_request_response['contentType'],
+                                       upload_url=upload_request_response['uploadUrl'])
+        else:
+            media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
+                                       content_type=upload_request_response['contentType'],
+                                       upload_url=upload_request_response['uploadUrl'], clip=video_clip)
         media_upload.save(commit=True)
 
         # upload the video
@@ -392,7 +420,7 @@ class VidBot(object):
         return _str.replace('##', "#")
 
     def is_image_file(self, file):
-        return mimetypes.guess_type(file)[0].startswith('image')
+        return 'image' in mimetypes.guess_type(file)[0]
 
     def is_video_file(self, file):
         """
@@ -434,6 +462,8 @@ class VidBot(object):
 
         platform_defaults = self.application_config.PLATFORM_DEFAULTS
 
+        compiled_keyword_list = self.compile_keywords()
+
         # post to each social platform one by one,
         for platform in self.platforms:
             post_data = {
@@ -469,9 +499,10 @@ class VidBot(object):
                     post_data["youTubeOptions"] = {
                         "title": self.post_title[0:100],
                         "post": post_data['post'],
-                        "tags": self.compile_keywords(),
+                        "tags": compiled_keyword_list,
                         "visibility": platform_defaults['youtube']['visibility'] if 'visibility' in platform_defaults[
                             'youtube'].keys() else "public",
+                        # todo IMPLEMENT THUMBNAIL CUSTOMIZATION
                         "thumbNail": self.yt_vid.thumbnail_url if self.youtube_video_download_link is not None else self.tiktok_downloader.thumbnail_url if self.tiktok_video_url is not None else None,
                         "madeForKids": False,
                         "shorts": True,
@@ -481,7 +512,7 @@ class VidBot(object):
                         del post_data['youTubeOptions']['thumbNail']
                 case "facebook":
                     keyword_string = ""
-                    for keyword in self.compile_keywords():
+                    for keyword in compiled_keyword_list:
                         keyword_string += f"#{keyword} "
 
                     if 'post' in platform_defaults['facebook'].keys():
@@ -515,10 +546,10 @@ class VidBot(object):
                 api_id = resp['id']
 
                 if resp['status'] == 'scheduled':
-                    post = SocialMediaPost(api_id=api_id, platform=platform, clip=media_upload.clip,
+                    post = SocialMediaPost(api_id=api_id, platform=platform, media_upload=media_upload,
                                            post_time=date_time.datetime(
-                                               to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow()
-                                           )
+                                               to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
+                                           hashtags=self.compile_keywords())
                     post.save(commit=True)
                     print("+ Scheduled on " + platform + " for " + self.scheduled_date)
 
@@ -531,8 +562,9 @@ class VidBot(object):
 
                             post = SocialMediaPost(api_id=api_id, platform=entry['platform'],
                                                    post_url=entry['postUrl'] if 'postUrl' in entry.keys() else None,
-                                                   clip=media_upload.clip, post_time=date_time.datetime(
-                                    to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow())
+                                                   media_upload=media_upload, post_time=date_time.datetime(
+                                    to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
+                                                   hashtags=compiled_keyword_list)
                             post.save(commit=True)
                             print("+ Posted to " + entry['platform'])
 
@@ -587,7 +619,25 @@ class VidBot(object):
 
         return self.scheduled_date
 
-    def run(self):
+    def post_image(self):
+        """
+        Create a social media post with the image.
+        :return:
+        """
+
+        if not self.downloaded:
+            print(f"Downloading Image from {self.image_url}")
+            self.download_image()
+
+            if not os.path.exists(self.output_filename):
+                print(f"Failed downloading {self.image_url} to {self.output_filename}")
+                return
+
+            print(f"Downloaded Image to {self.output_filename}")
+
+
+
+    def chop_and_post_video(self):
         """
         Perform the entire set of operations:
         1. Download the video
@@ -596,7 +646,8 @@ class VidBot(object):
         :return:
         """
 
-        if not self.downloaded and (self.youtube_video_download_link is not None or self.tiktok_video_url is not None):
+        if not self.downloaded and (
+                self.google_drive_link is not None or self.youtube_video_download_link is not None or self.tiktok_video_url is not None):
             self.download_video()
 
         clip_path, clip_record = None, None
@@ -604,11 +655,13 @@ class VidBot(object):
 
         media_file = None
         if clip_record.upload is None:
-            upload = click.prompt(f"Upload clip ({self.output_filename}) to social media? [Y/N] ", type=bool)
+            upload = click.prompt(
+                f"Please preview clip before answering!\nUpload clip ({self.output_filename}) to social media? [Y/N] ",
+                type=bool)
             if not upload:
                 click.echo("Will not using the created clip")
                 if click.prompt("Create a new clip? [Y/N] ", type=bool):
-                    self.run()
+                    self.chop_and_post_video()
                     return
                 else:
                     exit(0)
@@ -620,7 +673,7 @@ class VidBot(object):
 
         self.post_to_socials(media_file)
         print(
-            f"Uploaded clip to {','.join(self.platforms) if ',' in self.platforms else self.platforms} & Recorded this in the database!")
+            f"Uploaded {'clip' if self.is_image_file(self.output_filename) is False else 'image'} to {','.join(self.platforms) if ',' in self.platforms else self.platforms} & Recorded this in the database!")
 
         if "tiktok" in self.platforms:
             print("Open your TiKTok app to describe, hashtag & approve the upload.")
@@ -635,7 +688,7 @@ class VidBot(object):
 
 
 from webapp import create_app
-from config import DefaultConfig
+from webapp.config import DefaultConfig
 
 config = DefaultConfig()
 
@@ -703,7 +756,27 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
                  subclip_start=start_time,
                  post_description=description, skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule,
                  platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title, ffmpeg=ffmpeg)
-    bot.run()
+    bot.chop_and_post_video()
+
+
+@cli.command()
+@click.option('--image', '-i', 'image_link', type=str, required=False, default=None, help="Image link")
+@click.option('--local', "local_video_path", type=str, default=None, required=False, help="Local image path")
+@click.option('--output', '-o', "output_filename", default=f"{datetime.datetime.utcnow().timestamp()}",
+              help="Output path for the video clip", prompt="Output Filename for your image")
+@click.option("--description", "-d", "description", default=None, help="Description for the post.")
+@click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
+              help="Force the post of the video, skipping duplicate cuts.")
+@click.option('--schedule', '-t', "schedule", default=None,
+              help="Example: tomorrow 10:00 am. If not specified, the video will be posted immediately.")
+@click.option('--platforms', '-p', "platforms", default="tiktok,instagram,facebook,twitter,youtube")
+@click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
+def image(image_link, output_file_name, post_description, skip_duplicate_check, scheduled_date, platforms, post_title):
+    bot = VidBot(image_url=image_link, output_filename=output_file_name, post_description=post_description,
+                 skip_duplicate_check=skip_duplicate_check, scheduled_date=scheduled_date,
+                 platforms=platforms.split(',') if "," in platforms else [platforms], post_title=post_title)
+
+    bot.post_image()
 
 
 @cli.command('set_upload_schedule')
@@ -728,6 +801,22 @@ def tiktok_download(url, output_filename):
     print(f"Downloaded video to {output_filename}")
 
 
+@cli.command('images')
+def images():
+    images_uploaded = ImageDb.query.all()
+    click.echo(f"Images Reposted: {len(images_uploaded)}")
+
+    if len(images_uploaded) == 0:
+        return
+
+    image_info = []
+    for _img in images_uploaded:
+        image_info.append((_img.id, _img.created_at, _img.title, _img.description, _img.url,
+                           _img.upload.access_url if _img.upload is not None else '-'))
+
+    click.echo(tabulate(image_info, headers=["ID", "Created At", "Title", "Description", "URL", "Upload URL"]))
+
+
 @cli.command('clips')
 def clips():
     """
@@ -736,12 +825,19 @@ def clips():
     """
     clips = BotClip.query.all()
     click.echo(f"Clips Edited: {len(clips)}")
-    click.echo("---------------")
-    click.echo('[ID] | [Date Created] | Video Title | Start Time | Duration | Url | Upload (Access) URL')
+
+    if len(clips) == 0:
+        return
+
+    clip_info = []
+
     for clip in clips:
-        click.echo(
-            f"  + {clip.id} | {clip.created_at} | {clip.title} | {clip.start_time}s | {clip.duration}s | {clip.url} | {clip.upload.access_url if clip.upload is not None else 'Not Uploaded'}")
-    click.echo("---------------")
+        clip_info.append(
+            (clip.id, clip.title.strip()[0:30].strip(), clip.start_time, clip.duration, clip.url.strip(),
+             clip.upload.access_url.strip() if clip.upload is not None else '-'))
+
+    click.echo(tabulate(clip_info, headers=['ID', 'Video Title', 'Start Time', 'Duration', 'Url',
+                                            'Upload (Access) URL']))
 
 
 @cli.command('redo_clip', help="Post a specific cut of a video to the linked social media accounts")
@@ -791,7 +887,7 @@ def redo_clip(clip_id=None, description: str = None, skip_duplicate_check=False,
                  skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule,
                  platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title,
                  already_clipped=True)
-    bot.run()
+    bot.chop_and_post_video()
 
 
 @cli.command('history')
@@ -814,75 +910,156 @@ def history(last_days, last_records):
 
 @cli.command('post_info')
 @click.option('--clip-id', '-c', "clip_id", default=None, help="Post ID to get info for.")
-@click.option('--video-url', '-v', "video_url", default=None, help="Video URL to get info for.")
-def post_info(clip_id=None, video_url=None, print_intro_header=True):
+@click.option('--image-id', '-i', 'image_id', default=None, help="Image ID to get post info for.")
+@click.option('--url', '-u', "url", default=None, help="URL of media (vid / image) object to get post info for.")
+def post_info(clip_id=None, url=None, image_id=None, print_intro_header=True):
     """
     View information about a post via its clip id (acquired using the clips command) or video url.
     :param clip_id:
     :param video_url:
     :return:
     """
-    if clip_id is None and video_url is None:
-        click.echo("Please provide a clip id or video url")
+    if clip_id is None and url is None and image_id is None:
+        click.echo("Please provide a clip id, image_id, or  url")
         return
 
-    if "," in clip_id:
-        print(f"---- CLIP POST INFORMATION ----")
-        print('[PLATFORM] | [TYPE] | [POST ID] | [STATUS] | [CREATED] | [SCHEDULE_DATE] | [POST] | [URL]')
-        for clip_id in clip_id.split(","):
-            clip = BotClip.query.filter_by(id=clip_id).first()
+    # What will be printed to the console (as output) without header / footer details.
+    post_info = []
+    # ids that will be used to get post info from the api
+    post_ids = []
 
-            posts_with_clip = SocialMediaPost.query.filter_by(clip_id=clip.id).all()
-            if posts_with_clip is None or len(posts_with_clip) == 0:
-                continue
+    def get_post_data(post, response):
+        """
+        Local method to get formatted post information to print, using response (api) and post (database)
+        :param post:
+        :param response:
+        :return:
+        """
+        post_url = post.post_url
+        if post_url is None:
+            try:
+                post_url = response['postIds'][0]['postUrl']
+            except:
+                pass
 
-            for post in posts_with_clip:
-                req = requests.get(f'https://app.ayrshare.com/api/history/{post.api_id}',
-                                   headers={'Authorization': f'Bearer {api_key}'})
-                resp = req.json()
-                post_url = post.post_url
-                if post_url is None:
-                    try:
-                        post_url = resp['postIds'][0]['postUrl']
-                    except:
-                        pass
-                print(
-                    f"{post.platform} | {resp['type']} | {resp['id']} | {resp['status']} | {resp['created']} | {resp['scheduleDate']['utc'] if 'scheduleDate' in resp.keys() else 'N/A'} | ... | {post_url}")
+        return (post.platform, response['type'], response['id'], response['status'], response['created'],
+                response['scheduleDate']['utc'] if 'scheduleDate' in response.keys() else 'N/A',
+                ",".join([hashtag.name for hashtag in post.hashtags]), post_url)
 
-        print('---------------------------------')
+    matching_object = []
 
-    clip = None
+    # Handle video clips.
+    if (clip_id is not None and "," in clip_id) or (image_id is not None and "," in image_id):
 
-    if video_url is not None:
-        clip = BotClip.query.filter_by(url=video_url).first()
+        # Process video clip
+        if clip_id is not None:
+            for clip_id in clip_id.split(","):
+                clip = BotClip.query.filter_by(id=clip_id).first()
 
-    if clip_id is not None:
+                if clip is None:
+                    click.echo(f"! Could not find clip with id {clip_id}")
+                    continue
+
+                if clip.upload is None:
+                    click.echo(f"~ Clip {clip_id} was never uploaded")
+                    continue
+
+                matching_object.append(clip.upload)
+
+        if image_id is not None:
+            for image_id in image_id.split(","):
+                db_image = ImageDb.query.filter_by(id=image_id).first()
+
+                if db_image is None:
+                    click.echo(f"! Could not find image with id {image_id}")
+                    continue
+
+                if db_image.upload is None:
+                    click.echo(f"~ Image {image_id} was never uploaded")
+                    continue
+
+                matching_object.append(db_image.upload)
+
+    if clip_id is not None and ',' not in clip_id:
         clip = BotClip.query.filter_by(id=clip_id).first()
+        if clip is None:
+            click.echo(f"Could not find clip with url {url}")
+            return
 
-    if clip is None:
-        click.echo(f"Could not find clip with id {clip_id} or url {video_url}")
+        if clip.upload is None:
+            click.echo(f"~ Clip {clip_id} was never uploaded")
+            return
+
+        matching_object.append(clip.upload)
+
+    if image_id is not None and ',' not in image_id:
+        db_image = ImageDb.query.filter_by(id=image_id).first()
+
+        if db_image is None:
+            click.echo(f"Could not find image with id {image_id}")
+            return
+
+        if db_image.upload is None:
+            click.echo(f"~ Image {image_id} was never uploaded")
+            return
+
+        matching_object.append(db_image.upload)
+
+    if url is not None:
+        if 'tiktok' in url or 'youtube' in url or 'drive.google' in url or "youtu.be" in url:
+            clip = BotClip.query.filter_by(url=url).first()
+
+            if clip is None:
+                click.echo(f"Could not find clip with url {url}")
+                return
+
+            if clip.upload is None:
+                click.echo(f"~ Clip {clip_id} was never uploaded")
+                return
+
+            matching_object.append(clip.upload)
+        else:
+            db_image = ImageDb.query.filter_by(url=url).first()
+
+            if db_image is None:
+                click.echo(f"Could not find image with url {url}")
+                return
+
+            if db_image.upload is None:
+                click.echo(f"~ Image {image_id} was never uploaded")
+                return
+
+            matching_object.append(db_image.upload)
+
+    for upload in matching_object:
+        posts_with_clip = SocialMediaPost.query.filter_by(media_upload_id=upload.id).all()
+        if posts_with_clip is None:
+            click.echo(f"~ Object attached (MediaUpload id({upload.id}) was never posted to social media")
+            continue
+
+        for post in posts_with_clip:
+            post_ids.append(post.api_id)
+
+    if len(post_ids) == 0:
+        click.echo("No posts found")
         return
 
-    posts_with_clip = SocialMediaPost.query.filter_by(clip_id=clip.id).all()
-    if posts_with_clip is None or len(posts_with_clip) == 0:
-        click.echo(f"Could not find any posts with clip id {clip_id}")
-        return
+    for post_id in post_ids:
+        # Get post info from the api
+        posts_with_clip = SocialMediaPost.query.filter_by(api_id=post_id).all()
+        if posts_with_clip is None or len(posts_with_clip) == 0:
+            continue
 
-    if print_intro_header:
-        print(f"---- CLIP POST INFORMATION ----")
-        print('[PLATFORM] | [TYPE] | [POST ID] | [STATUS] | [CREATED] | [SCHEDULE_DATE] | [POST] | [URL]')
-    ids = []
-    for post in posts_with_clip:
-        ids.append(post.api_id)
+        for post in posts_with_clip:
+            req = requests.get(f'https://app.ayrshare.com/api/history/{post.api_id}',
+                               headers={'Authorization': f'Bearer {api_key}'})
+            resp = req.json()
 
-        req = requests.get(f'https://app.ayrshare.com/api/history/{post.api_id}',
-                           headers={'Authorization': f'Bearer {api_key}'})
-        resp = req.json()
-        print(
-            f"{post.platform} | {resp['type']} | {resp['id']} | {resp['status']} | {resp['created']} | {resp['scheduleDate']['utc'] if 'scheduleDate' in resp.keys() else 'N/A'} | {resp['post']} | {post.post_url if post.post_url is not None else resp['postIds'][0]['postUrl'] if 'postIds' in resp.keys() else 'N/A'}")
+            post_info.append(get_post_data(post, resp))
 
-    if print_intro_header:
-        print('----------------------------------')
+    from tabulate import tabulate
+    click.echo(
+        tabulate(post_info, headers=['Platform', 'Type', 'ID', 'Status', 'Created', 'Scheduled', 'Hashtags', 'URL']))
 
 
 if __name__ == '__main__':
