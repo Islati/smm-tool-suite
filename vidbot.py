@@ -511,17 +511,16 @@ class VidBot(object):
                     if post_data['youTubeOptions']['thumbNail'] is None:
                         del post_data['youTubeOptions']['thumbNail']
                 case "facebook":
-                    keyword_string = ""
-                    for keyword in compiled_keyword_list:
-                        keyword_string += f"#{keyword} "
-
                     if 'post' in platform_defaults['facebook'].keys():
                         post_data['post'] = self.parse_tags(platform_defaults['facebook']['post'])
+
                     post_data['faceBookOptions'] = {
-                        "title": self.parse_tags(platform_defaults['facebook']['title']),
                         "altText": self.parse_tags(platform_defaults['facebook']['altText']),
                         "mediaCaptions": self.parse_tags(platform_defaults['facebook']['mediaCaptions']),
                     }
+
+                    if self.is_video_file(self.output_filename):
+                        post_data['faceBookOptions']["title"] = self.parse_tags(platform_defaults['facebook']['title']),
 
             # If there's a scheduled date set, process that value.
             if self.scheduled_date is not None:
@@ -635,7 +634,16 @@ class VidBot(object):
 
             print(f"Downloaded Image to {self.output_filename}")
 
+        media_upload = self.upload_file_to_cloud(image_file=self.output_filename)
 
+        if click.prompt("Proceed with posting socials?", type=bool, default=True):
+            self.post_to_socials(media_upload=media_upload)
+            print(
+                f"Uploaded image to {','.join(self.platforms) if ',' in self.platforms else self.platforms}")
+
+        os.remove(self.output_filename)
+        print("~ Files Cleaned Up. Exiting...")
+        return
 
     def chop_and_post_video(self):
         """
@@ -769,9 +777,13 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
               help="Force the post of the video, skipping duplicate cuts.")
 @click.option('--schedule', '-t', "schedule", default=None,
               help="Example: tomorrow 10:00 am. If not specified, the video will be posted immediately.")
-@click.option('--platforms', '-p', "platforms", default="tiktok,instagram,facebook,twitter,youtube")
+@click.option('--platforms', '-p', "platforms", default="instagram,facebook,twitter")
 @click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
 def image(image_link, output_file_name, post_description, skip_duplicate_check, scheduled_date, platforms, post_title):
+    if 'youtube' in platforms or 'tiktok' in platforms:
+        click.echo("You can't post an image to Youtube or TikTok")
+        return
+
     bot = VidBot(image_url=image_link, output_filename=output_file_name, post_description=post_description,
                  skip_duplicate_check=skip_duplicate_check, scheduled_date=scheduled_date,
                  platforms=platforms.split(',') if "," in platforms else [platforms], post_title=post_title)

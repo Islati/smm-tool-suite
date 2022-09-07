@@ -53,6 +53,6 @@ class DefaultConfig(object):
             'post': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [hashtags]',
             'title': '[title]',
             'altText': '[title]',
-            'mediaCaptions': '🎶 Music @ http://skreet.ca 🔗 Like, Subscribe & Share [viddesc]\n\n[desc] [hashtags]'
+            'mediaCaptions': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [hashtags]'
         }
     }

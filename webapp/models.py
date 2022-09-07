@@ -119,3 +119,11 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
                          media_upload=media_upload,
                          media_upload_id=media_upload.id,
                          hashtags=[Hashtag.get_or_create(name=hashtag) for hashtag in hashtags])
+
+    @hybrid_property
+    def is_video(self):
+        return self.media_upload.is_video
+
+    @hybrid_property
+    def is_image(self):
+        return self.media_upload.is_image
