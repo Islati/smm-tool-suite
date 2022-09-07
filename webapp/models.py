@@ -7,6 +7,9 @@ from webapp.database import db, SqlModel, SurrogatePK, TimeMixin
 
 
 class VideoClip(SurrogatePK, TimeMixin, SqlModel):
+    """
+    Represents a previously created video clip (with the bot)
+    """
     __tablename__ = "video_clips"
 
     url = db.Column(db.String(255), nullable=False)
@@ -19,6 +22,9 @@ class VideoClip(SurrogatePK, TimeMixin, SqlModel):
 
 
 class MediaUpload(SurrogatePK, TimeMixin, SqlModel):
+    """
+    Represents a media upload to the API
+    """
     __tablename__ = "media_uploads"
 
     access_url = db.Column(db.Text, nullable=False)
@@ -39,6 +45,9 @@ class MediaUpload(SurrogatePK, TimeMixin, SqlModel):
 
 
 class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
+    """
+    Represents a social media post made with the API
+    """
     __tablename__ = "social_media_posts"
 
     api_id = db.Column(db.Text, nullable=False)

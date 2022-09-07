@@ -46,11 +46,11 @@ class DefaultConfig(object):
             'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Comment\n[desc] [hashtags]',
         },
         'youtube': {
-            'post': '🎶 Music @ http://skreet.ca 🔗 Like, Subscribe & Share \n[viddesc]\n[desc]',
+            'post': '[desc] 🎶 Music @ http://skreet.ca 🔗 Like, Subscribe & Share \n[viddesc]',
             'visibility': "public",
         },
         "facebook": {
-            'post': '🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [desc] [hashtags]',
+            'post': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [hashtags]',
             'title': '[title]',
             'altText': '[title]',
             'mediaCaptions': '🎶 Music @ http://skreet.ca 🔗 Like, Subscribe & Share [viddesc]\n\n[desc] [hashtags]'

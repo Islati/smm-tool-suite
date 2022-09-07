@@ -20,6 +20,8 @@ from webapp.models import VideoClip as BotClip, MediaUpload, SocialMediaPost
 from config import DefaultConfig
 from ayrshare import SocialPost
 
+import gdown
+
 api_key = "W8ZMC7Q-PFBMXSB-JPDK8HC-NQPQCXH"
 social = SocialPost(api_key)
 
@@ -79,21 +81,18 @@ class VidBot(object):
                  application_config=DefaultConfig(), already_clipped=False, ffmpeg=False):
         """
         Initializes the VidBot class with the defined configuration.
-        If there's no youtube_video_download_link, then it will use the tiktok_video_url instead.
-        If there's no tiktok_video_url, then it will use the local_video_clip_location instead.
-        If there's no local_video_clip, then it will use the google_drive_link instead.
-        If there's no link available at all it will not initialize.
-        :param youtube_video_download_link:
+        :param youtube_video_download_link: Youtube video download link
         :param tiktok_video_url: TikTok Video URL
-        :param local_video_clip_location:
-        :param clip_length:
-        :param skip_intro_time:
-        :param output_filename:
-        :param post_description:
-        :param skip_duplicate_check:
-        :param subclip_start:
-        :param scheduled_date:
-        :param platforms:
+        :param local_video_clip_location: local video file to open for chopping
+        :param google_drive_link: Google Drive link to download the video from
+        :param clip_length: length of clip to create
+        :param skip_intro_time: skip the first x seconds of the video
+        :param output_filename: output filename of the video
+        :param post_description: description of the post
+        :param skip_duplicate_check: skip the duplicate check
+        :param subclip_start: start time of the subclip (in seconds). This forces start at the clip
+        :param scheduled_date: date to upload the content
+        :param platforms: platforms to upload the content to.
         """
         self.yt_vid: YouTube = None
         self.youtube_video_download_link = youtube_video_download_link
@@ -105,6 +104,8 @@ class VidBot(object):
         self.tiktok_downloader: TikTokDownloader = None
         if self.tiktok_video_url is not None:
             self.tiktok_downloader = TikTokDownloader(self.tiktok_video_url, output_filename=output_filename)
+
+        self.google_drive_link = google_drive_link
         self.downloaded: bool = False
         # local file
         self.local_video_clip_location = local_video_clip_location
@@ -192,6 +193,13 @@ class VidBot(object):
             self.audio = self.video.audio
             return self.output_filename
 
+        if self.google_drive_link is not None:
+            gdown.download(self.google_drive_link, self.output_filename, quiet=False)
+            self.video_path = self.output_filename
+            self.video = VideoFileClip(self.output_filename)
+            self.audio = self.video.audio
+            return self.output_filename
+
         return None
 
     def is_downloaded_clip(self):
@@ -201,6 +209,9 @@ class VidBot(object):
         """
         if not self.downloaded:
             return False
+
+        if self.google_drive_link is not None:
+            return True
 
         if self.youtube_video_download_link is not None:
             return True
@@ -216,6 +227,9 @@ class VidBot(object):
 
         if self.tiktok_video_url is not None:
             return self.tiktok_video_url
+
+        if self.google_drive_link is not None:
+            return self.google_drive_link
 
         return None
 
@@ -265,11 +279,10 @@ class VidBot(object):
             # self.clip = self.clip.set_audio(audio_clip)
             self.clip.write_videofile(f"clip_{self.output_filename}",
                                       temp_audiofile=f"tempaudio.m4a",
-                                      audio_codec="aac", remove_temp=False,codec="libx264")
+                                      audio_codec="aac", remove_temp=False, codec="libx264")
             # self.created_files.append(f"{self.output_filename.replace('.', '_')}_tempaudio.m4a")
             self.created_files.append(f"{self.output_filename}")
             self.created_files.append(f"clip_{self.output_filename}")
-            self.clip.preview()
             self.clip.close()
             # invoke ffmpeg to append audio subclip.
             import subprocess as sp
@@ -358,7 +371,7 @@ class VidBot(object):
                 if keyword_length >= 400 or len(keyword) + keyword_length >= 400:
                     break
 
-                keywords.append(keyword)
+                keywords.append(keyword.replace("#", ""))
                 keyword_length += len(keyword)
 
         if self.tiktok_video_url is not None:
@@ -376,7 +389,7 @@ class VidBot(object):
         _str = ""
         for keyword in self.compile_keywords():
             _str += f"#{keyword} "
-        return _str
+        return _str.replace('##', "#")
 
     def is_image_file(self, file):
         return mimetypes.guess_type(file)[0].startswith('image')
