@@ -510,7 +510,19 @@ class VidBot(object):
 
         date_time = None
 
-        is_video_file = self.is_video_file(self.output_filename)
+        filename = None
+
+        if self.local_image_location is not None:
+            filename = self.local_image_location
+
+        if self.local_video_clip_location is not None:
+            filename = self.local_video_clip_location
+
+        if filename is None and self.output_filename is None:
+            print("Unable to post as no filename is available.")
+            return
+
+        is_video_file = self.is_video_file(self.output_filename if self.output_filename is not None else filename)
 
         platform_defaults = self.application_config.PLATFORM_DEFAULTS
 
@@ -533,13 +545,13 @@ class VidBot(object):
                 case "twitter":
                     if 'post' in platform_defaults['twitter'].keys():
                         post_data['post'] = self.parse_tags(platform_defaults['twitter']['post'])[0:280]
-                    if self.is_image_file(self.output_filename):
+                    if self.is_image_file(filename):
                         post_data['image_alt_text'] = self.parse_tags(platform_defaults['twitter']['image_alt_text'])
                     post_data['post'] = post_data['post'][0:280]
                 case "instagram":
                     if 'post' in platform_defaults['instagram'].keys():
                         post_data['post'] = self.parse_tags(platform_defaults['instagram']['post'])[0:2200]
-                    if self.is_video_file(self.output_filename):
+                    if self.is_video_file(filename):
                         post_data["instagramOptions"] = {
                             "reels": True,
                             "shareReelsFeed": True,
@@ -571,7 +583,7 @@ class VidBot(object):
                         "mediaCaptions": self.parse_tags(platform_defaults['facebook']['mediaCaptions']),
                     }
 
-                    if self.is_video_file(self.output_filename):
+                    if self.is_video_file(filename):
                         post_data['faceBookOptions']["title"] = self.parse_tags(platform_defaults['facebook']['title']),
 
             # If there's a scheduled date set, process that value.

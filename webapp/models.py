@@ -37,8 +37,8 @@ class ImageDb(SurrogatePK, TimeMixin, SqlModel):
     __tablename__ = "images"
 
     url = db.Column(db.String(255), nullable=False)
-    title = db.Column(db.Text, nullable=False)
-    description = db.Column(db.Text, nullable=False)
+    title = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text, nullable=True)
 
     def __init__(self, url, title, description):
         super().__init__(url=url, title=title, description=description)
