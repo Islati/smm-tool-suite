@@ -4,6 +4,7 @@ import mimetypes
 import random
 import shutil
 from pathlib import Path
+import subprocess as sp
 
 import maya
 import requests
@@ -49,6 +50,30 @@ def extract_hashtags(text):
     return hashtag_list
 
 
+def ffmpeg_convert_to_mp4(filename, targetname=None):
+    command = [
+        'ffmpeg',
+        '-i', filename,
+        '-c:v', 'libx264',
+        '-c:a', 'aac',
+        '-vf', 'format=yuv420p',
+        '-movflags', '+faststart',
+        '-y', targetname
+    ]
+
+    # command = ['ffmpeg',
+    #            '-y',  # approve output file overwite
+    #            '-i', f"clip_{self.output_filename}",
+    #            '-i', f"tempaudio.m4a",
+    #            '-c:v', 'copy',
+    #            '-c:a', 'aac',  # to convert mp3 to aac
+    #            '-shortest',
+    #            f"{self.output_filename}"]
+
+    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
+    process.wait()
+
+
 def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
     """ Makes a new video file playing video file ``filename`` between
         the times ``t1`` and ``t2``. """
@@ -57,13 +82,36 @@ def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
         T1, T2 = [int(1000 * t) for t in [t1, t2]]
         targetname = "%sSUB%d_%d.%s" % (name, T1, T2, ext)
 
-    cmd = [get_setting("FFMPEG_BINARY"), "-y",
-           "-i", filename,
-           "-ss", "%0.2f" % t1,
-           "-t", "%0.2f" % (t2 - t1),
-           "-map", "0", "-vcodec", "copy", "-acodec", "copy", targetname]
+    # Convert & Subclip.
+    command = [
+        'ffmpeg',
+        '-i', filename,
+        '-c:v', 'copy',
+        '-c:a', 'copu',
+        '-movflags', '+faststart',
+        '-ss', "%0.2f" % t1,
+        "-t", "%0.2f" % (t2 - t1),
+        '-y', targetname
+    ]
 
-    subprocess_call(cmd)
+    # command = ['ffmpeg',
+    #            '-y',  # approve output file overwite
+    #            '-i', f"clip_{self.output_filename}",
+    #            '-i', f"tempaudio.m4a",
+    #            '-c:v', 'copy',
+    #            '-c:a', 'aac',  # to convert mp3 to aac
+    #            '-shortest',
+    #            f"{self.output_filename}"]
+
+    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
+    process.wait()
+    #
+    # cmd = [get_setting("FFMPEG_BINARY"), "-y",
+    #        "-i", filename,
+    #        "-ss", "%0.2f" % t1,
+    #        "-map", "0", "-vcodec", "h264", "-acodec", "aac", targetname]
+
+    # subprocess_call(cmd)
 
 
 class VidBot(object):
@@ -97,6 +145,9 @@ class VidBot(object):
         :param subclip_start: start time of the subclip (in seconds). This forces start at the clip
         :param scheduled_date: date to upload the content
         :param platforms: platforms to upload the content to.
+        :param application_config: application configuration
+        :param already_clipped: whether or not the video has already been clipped
+        :param ffmpeg: whether or not to use ffmpeg to extract the subclip
         """
         self.yt_vid: YouTube = None
         self.youtube_video_download_link = youtube_video_download_link
@@ -126,7 +177,7 @@ class VidBot(object):
         self.clip_path: Path = None
         self.skip_intro_time = skip_intro_time
 
-        self.output_filename = output_filename
+        self._output_filename = output_filename
         self.post_description = post_description
         self.skip_duplicate_check = skip_duplicate_check
         self.subclip_start = subclip_start
@@ -145,6 +196,16 @@ class VidBot(object):
         self.created_files = [
             "tempaudio.m4a"
         ]  # This will be removed after upload & such :)
+
+        self.downloaded_file_path = None
+
+    @property
+    def output_filename(self):
+        return self._output_filename
+
+    @output_filename.setter
+    def output_filename(self, value):
+        self._output_filename = value
 
     def is_local_video(self):
         """
@@ -218,8 +279,7 @@ class VidBot(object):
         :return: path of the video downloaded
         """
         if self.youtube_video_download_link is not None:
-            path = self.yt_vid.streams.filter(progressive=True).get_highest_resolution().download(
-                filename=self.output_filename)
+            path = self.yt_vid.streams.filter(progressive=True).get_highest_resolution().download()
             self.downloaded = True
             self.video_path = path
             self.video = VideoFileClip(path)
@@ -235,14 +295,24 @@ class VidBot(object):
             return self.output_filename
 
         if self.google_drive_link is not None:
-            gdown.download(self.google_drive_link, self.output_filename, quiet=False)
-            if self.is_video_file(self.output_filename):
-                self.video_path = self.output_filename
-                self.video = VideoFileClip(self.output_filename)
-                self.audio = self.video.audio
+            output_filename = gdown.download(self.google_drive_link, quiet=False, fuzzy=True)
+            self.downloaded_file_path = output_filename
+            if self.is_video_file(output_filename):
+
+                if "mp4" not in mimetypes.guess_type(output_filename)[0]:
+                    print(f"Converting file to MP4 Format: {output_filename} to {self.output_filename}")
+                    ffmpeg_convert_to_mp4(output_filename, targetname=self.output_filename)
+
+                    self.video_path = self.output_filename
+                    self.video = VideoFileClip(self.output_filename)
+                    self.audio = self.video.audio
+                else:
+                    self.video_path = output_filename
+                    self.video = VideoFileClip(output_filename)
+                    self.audio = self.video.audio
             else:
-                print(f"~ Downloaded {self.output_filename} is not a video file.")
-            return self.output_filename
+                print(f"~ Downloaded {output_filename} is not a video file.")
+            return output_filename
 
         return None
 
@@ -284,12 +354,9 @@ class VidBot(object):
         :return: path of the clip
         """
 
-        # Download clip if it's not local
-        if not self.is_downloaded_clip() and not self.is_local_video():
-            self.download_video()
-
         # get a random start time
         start_time = self.get_random_start_time() if self.subclip_start == -1 else self.subclip_start
+
         # CHECK FOR DUPLICATE CLIPS IN DB **
         if self.check_for_duplicate_clips(start_time):
             print(f"Duplicate clip starting @ {start_time}s! Retrying...")
@@ -304,17 +371,20 @@ class VidBot(object):
 
             print(
                 f"Created database entry ({video_clip_record.id}) for video clip of {self.output_filename} starting @ {start_time}s")
-            return f"{self.output_filename}", video_clip_record
+            return f"{self.downloaded_file_path if self.downloaded_file_path is not None else self.output_filename}", video_clip_record
 
         end_time = start_time + self.clip_length
         print(f"Clipping video from {start_time}s to {end_time}s")
         # Create & save the clip
 
         if self.ffmpeg:
-            ffmpeg_extract_subclip(self.output_filename, start_time, end_time, targetname=f"sub_{self.output_filename}")
-            self.output_filename = f"sub_{self.output_filename}"
+            ffmpeg_extract_subclip(
+                self.downloaded_file_path if self.downloaded_file_path is not None else self.output_filename,
+                start_time, end_time,
+                targetname=f"sub_{self.output_filename}" if self.downloaded_file_path is None else self.output_filename)
+            self.output_filename = f"sub_{self.output_filename}" if self.downloaded_file_path is None else self.output_filename
             print("New filename: ", self.output_filename)
-            self.created_files.append(f"sub_{self.output_filename}")
+            self.created_files.append(f"{self.output_filename}")
             # write the entry to the db
         else:
             self.clip = self.video.subclip(start_time, end_time)
@@ -325,14 +395,15 @@ class VidBot(object):
                                       temp_audiofile=f"tempaudio.m4a",
                                       audio_codec="aac", remove_temp=False, codec="libx264")
             # self.created_files.append(f"{self.output_filename.replace('.', '_')}_tempaudio.m4a")
-            self.created_files.append(f"{self.output_filename}")
+            self.created_files.append(
+                f"{self.downloaded_file_path if self.downloaded_file_path is not None else self.output_filename}")
             self.created_files.append(f"clip_{self.output_filename}")
             self.clip.close()
             # invoke ffmpeg to append audio subclip.
             import subprocess as sp
             command = ['ffmpeg',
                        '-y',  # approve output file overwite
-                       '-i', f"{self.output_filename}",
+                       '-i', f"clip_{self.output_filename}",
                        '-i', f"tempaudio.m4a",
                        '-c:v', 'copy',
                        '-c:a', 'aac',  # to convert mp3 to aac
@@ -342,6 +413,8 @@ class VidBot(object):
             print(f"Running command: {' '.join(command)}")
             process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
             process.wait()
+
+            os.remove(f"clip_{self.output_filename}")
 
             # write the entry to the db
         video_clip_record = BotClip(url=self.get_video_url(), title=self.post_title,
@@ -433,12 +506,15 @@ class VidBot(object):
                             data=json_body)
         print(req.text)
 
-    def compile_keywords(self):
+    def compile_keywords(self, post=False):
         """
         Compile the keywords (hashtags) for this vid. Uses the provided description, and any online source if available.
         :return:
         """
-        keywords = extract_hashtags(self.post_description)
+        keywords = []
+
+        if post:
+            keywords = extract_hashtags(self.post_description)
         keyword_length = 0
 
         for keyword in keywords:
@@ -467,11 +543,13 @@ class VidBot(object):
 
     def compile_hashtag_string(self):
         _str = ""
-        for keyword in self.compile_keywords():
+        for keyword in self.compile_keywords(post=False):
             _str += f"#{keyword} "
         return _str.replace('##', "#")
 
     def is_image_file(self, file):
+        if file is None:
+            return False
         return 'image' in mimetypes.guess_type(file)[0]
 
     def is_video_file(self, file):
@@ -480,6 +558,9 @@ class VidBot(object):
         :param file:
         :return:
         """
+        if file is None:
+            return False
+
         mimetype = mimetypes.guess_type(file)[0]
         return "video" in mimetype
 
@@ -526,7 +607,7 @@ class VidBot(object):
 
         platform_defaults = self.application_config.PLATFORM_DEFAULTS
 
-        compiled_keyword_list = self.compile_keywords()
+        compiled_keyword_list = self.compile_keywords(post=True)
 
         # post to each social platform one by one,
         for platform in self.platforms:
@@ -560,6 +641,14 @@ class VidBot(object):
                     if 'post' in platform_defaults['youtube'].keys():
                         post_data['post'] = self.parse_tags(platform_defaults['youtube']['post'])
 
+                    thumbnail_url = None
+
+                    if self.youtube_video_download_link is not None:
+                        thumbnail_url = self.yt_vid.thumbnail_url
+
+                    if self.tiktok_video_url is not None:
+                        thumbnail_url = self.tiktok_downloader.thumbnail_url
+
                     post_data["youTubeOptions"] = {
                         "title": self.post_title[0:100],
                         "post": post_data['post'],
@@ -567,7 +656,7 @@ class VidBot(object):
                         "visibility": platform_defaults['youtube']['visibility'] if 'visibility' in platform_defaults[
                             'youtube'].keys() else "public",
                         # todo IMPLEMENT THUMBNAIL CUSTOMIZATION
-                        "thumbNail": self.yt_vid.thumbnail_url if self.youtube_video_download_link is not None else self.tiktok_downloader.thumbnail_url if self.tiktok_video_url is not None else None,
+                        "thumbNail": thumbnail_url,
                         "madeForKids": False,
                         "shorts": True,
                     }
@@ -583,7 +672,7 @@ class VidBot(object):
                         "mediaCaptions": self.parse_tags(platform_defaults['facebook']['mediaCaptions']),
                     }
 
-                    if self.is_video_file(filename):
+                    if is_video_file:
                         post_data['faceBookOptions']["title"] = self.parse_tags(platform_defaults['facebook']['title']),
 
             # If there's a scheduled date set, process that value.
@@ -612,7 +701,7 @@ class VidBot(object):
                     post = SocialMediaPost(api_id=api_id, platform=platform, media_upload=media_upload,
                                            post_time=date_time.datetime(
                                                to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
-                                           hashtags=self.compile_keywords())
+                                           hashtags=compiled_keyword_list)
                     post.save(commit=True)
                     print("+ Scheduled on " + platform + " for " + self.scheduled_date)
 
@@ -735,9 +824,11 @@ class VidBot(object):
         :return:
         """
 
+        video_path = None
+
         if not self.downloaded and (
                 self.google_drive_link is not None or self.youtube_video_download_link is not None or self.tiktok_video_url is not None):
-            self.download_video()
+            video_path = self.download_video()
 
         clip_path, clip_record = None, None
         clip_path, clip_record = self.create_video_clip()
@@ -745,8 +836,8 @@ class VidBot(object):
         media_file = None
         if clip_record.upload is None:
             upload = click.prompt(
-                f"Please preview clip before answering!\nUpload clip ({self.output_filename}) to social media? [Y/N] ",
-                type=bool)
+                f"Please preview clip before answering!\nUpload clip ({self.output_filename}) to cloud? [Y/N] ",
+                type=bool, default=True)
             if not upload:
                 click.echo("Will not using the created clip")
                 if click.prompt("Create a new clip? [Y/N] ", type=bool):
@@ -760,6 +851,9 @@ class VidBot(object):
             media_file = clip_record.upload
             click.echo(f"Reusing existing upload {media_file.access_url}")
 
+        if not click.prompt("Proceed with posting socials?", type=bool, default=True):
+            return
+
         self.post_to_socials(media_file)
         print(
             f"Uploaded {'clip' if self.is_image_file(self.output_filename) is False else 'image'} to {','.join(self.platforms) if ',' in self.platforms else self.platforms} & Recorded this in the database!")
@@ -770,9 +864,11 @@ class VidBot(object):
         if len(self.created_files) > 0:
             click.echo("Cleaning up files...")
             for file in self.created_files:
-                os.remove(file)
-                print(f"Removed {file}")
-
+                try:
+                    os.remove(file)
+                    print(f"Removed {file}")
+                except:
+                    pass
         print("Enjoy!")
 
 
@@ -790,9 +886,13 @@ def cli():
 
 
 @cli.command()
-@click.option('--yt', '-yt', 'youtube_video_download_link', type=str, default=None)
-@click.option('--tiktok', '-tik', 'tiktok_video_link', type=str, required=False, default=None)
-@click.option('--local', "local_video_path", type=str, default=None, required=False)
+@click.option('--yt', '-yt', 'youtube_video_download_link', type=str, default=None, help="Link to the youtube video")
+@click.option('--tiktok', '-tik', 'tiktok_video_link', type=str, required=False, default=None,
+              help="Link to the tiktok video")
+@click.option('--gd', '-gd', 'google_drive_link', type=str, required=False, default=None,
+              help="Link to the google drive video")
+@click.option('--local', "local_video_path", type=str, default=None, required=False,
+              help="Link to the local video (path)")
 @click.option('--length', '-l', "clip_length", default=-1, help="Length of the clip in seconds")
 @click.option('--skip', '-s', "skip_intro_time", default=0, help="Skip the first x seconds of the video")
 @click.option('--output', '-o', "output_filename", default=f"{datetime.datetime.utcnow().timestamp()}",
@@ -808,7 +908,8 @@ def cli():
               help="Start time of the clip (default random start time)")
 @click.option('--fmpeg', '-fm', 'ffmpeg', required=False, default=False, help="Use ffmpeg to cut the video",
               is_flag=True)
-def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_video_path=None, clip_length=33,
+def chop(youtube_video_download_link: str = None, tiktok_video_link=None, google_drive_link=None, local_video_path=None,
+         clip_length=33,
          skip_intro_time=0,
          output_filename: str = None,
          description: str = None,
@@ -831,14 +932,16 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
         click.echo("Please provide a filename with an extension")
         return
 
-    if youtube_video_download_link is None and local_video_path is None and tiktok_video_link is None:
+    if google_drive_link is None and youtube_video_download_link is None and local_video_path is None and tiktok_video_link is None:
         click.echo(
             "ERROR: You must provide a video link.\n\n See --help for more information")
         exit(0)
         return
 
     bot = VidBot(youtube_video_download_link=youtube_video_download_link, tiktok_video_url=tiktok_video_link,
-                 local_video_clip_location=os.path.expanduser(local_video_path),
+                 local_video_clip_location=os.path.expanduser(
+                     local_video_path) if local_video_path is not None else None,
+                 google_drive_link=google_drive_link,
                  clip_length=clip_length,
                  skip_intro_time=skip_intro_time,
                  output_filename=output_filename,

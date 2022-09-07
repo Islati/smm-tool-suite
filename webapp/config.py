@@ -52,7 +52,7 @@ class DefaultConfig(object):
         "facebook": {
             'post': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [hashtags]',
             'title': '[title]',
-            'altText': '[title]',
+            'altText': '[desc]',
             'mediaCaptions': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [hashtags]'
         }
     }
