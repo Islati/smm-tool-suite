@@ -170,7 +170,7 @@ class VidBot(object):
                 return True
 
         if local_url is not None:
-            image = ImageDb.query.filter_by(local_url=local_url).first()
+            image = ImageDb.query.filter_by(url=local_url).first()
 
             if image is not None:
                 return True
@@ -362,25 +362,54 @@ class VidBot(object):
         """
         return random.randint(0 + self.skip_intro_time, math.floor(self.video.duration - self.clip_length))
 
-    def upload_file_to_cloud(self, video_clip: VideoClip = None, image_file=None):
+    def upload_file_to_cloud(self, video_clip: VideoClip = None, image: ImageDb = None):
         """
         Uploads the video clip to social media via the API.
         :return:
         """
-        assert video_clip is not None or image_file is not None, "No video clip or image file provided to upload."
+        assert video_clip is not None or image is not None, "No video clip or image provided to upload."
+
+        content_type = None
+
+        filename = None
+
+        if video_clip is not None:
+            if self.local_video_clip_location is not None:
+                filename = self.local_video_clip_location
+            else:
+                filename = self.output_filename
+
+            content_type = mimetypes.guess_type(filename)[0]
+
+        if image is not None:
+            if self.image_url is not None:
+                filename = self.output_filename
+            else:
+                filename = self.local_image_location
+
+            content_type = \
+                mimetypes.guess_type(filename)[0]
+
+        if content_type is None:
+            raise Exception(f"Could not determine content type for file")
+
+        if filename is None:
+            raise Exception(f"Could not determine filename")
 
         # retrieve the information
         req = requests.get("https://app.ayrshare.com/api/media/uploadUrl",
                            headers={'Authorization': f'Bearer {api_key}'},
-                           params={'contentType': mimetypes.guess_type(self.output_filename)[0],
-                                   'fileName': f"{self.output_filename}"})
+                           params={'contentType': content_type,
+                                   'fileName': f"{filename}"})
 
         upload_request_response = req.json()
 
-        if image_file is not None:
+        print(f"Upload request response: {upload_request_response}")
+
+        if image is not None:
             media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
                                        content_type=upload_request_response['contentType'],
-                                       upload_url=upload_request_response['uploadUrl'], image=image_file)
+                                       upload_url=upload_request_response['uploadUrl'], image=image)
         else:
             media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
                                        content_type=upload_request_response['contentType'],
@@ -391,7 +420,7 @@ class VidBot(object):
 
         req = requests.put(upload_request_response['uploadUrl'],
                            headers={'Content-Type': upload_request_response['contentType']},
-                           data=open(f"{self.output_filename}", 'rb'))
+                           data=open(f"{filename}", 'rb'))
 
         if req.status_code == 200:
             return media_upload
@@ -659,14 +688,17 @@ class VidBot(object):
             self.downloaded = True
 
         if not self.skip_duplicate_check:
-            duplicate = self.check_for_duplicate_images(self.image_url,self.local_image_location)
+            duplicate = self.check_for_duplicate_images(self.image_url, self.local_image_location)
 
             if duplicate:
                 print(f"Duplicate image found, skipping post.")
                 return
 
-        media_upload = self.upload_file_to_cloud(
-            image_file=self.local_image_location if self.local_image_location is not None else self.output_filename)
+        image_record = ImageDb(url=self.image_url if self.local_image_location is None else self.local_image_location,
+                               title=self.post_title, description=self.post_description)
+        image_record.save(commit=True)
+
+        media_upload = self.upload_file_to_cloud(image=image_record)
 
         if click.prompt("Proceed with posting socials?", type=bool, default=True):
             self.post_to_socials(media_upload=media_upload)
@@ -809,15 +841,15 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, local_
 @click.option('--local', "local_image_file", type=str, default=None, required=False, help="Local image path")
 @click.option('--output', '-o', "output_file_name", default=None,
               help="Output path for the video clip")
-@click.option("--description", "-d", "description", default=None, help="Description for the post.")
+@click.option("--description", "-d", "post_description", default=None, help="Description for the post.")
 @click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
               help="Force the post of the video, skipping duplicate cuts.")
 @click.option('--schedule', '-t', "schedule", default=None,
               help="Example: tomorrow 10:00 am. If not specified, the video will be posted immediately.")
 @click.option('--platforms', '-p', "platforms", default="instagram,facebook,twitter")
 @click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
-def image(image_link, local_image_file, output_file_name, post_description, skip_duplicate_check, scheduled_date,
-          platforms, post_title):
+def image(image_link, local_image_file, output_file_name, post_description, skip_duplicate_check, schedule,
+          platforms, title):
     """
     Crate an image post on social media.
     :param image_link: link to the image (online)
@@ -825,9 +857,9 @@ def image(image_link, local_image_file, output_file_name, post_description, skip
     :param output_file_name: output file name (for downloaded file)
     :param post_description: post body.
     :param skip_duplicate_check:
-    :param scheduled_date:
+    :param schedule:
     :param platforms:
-    :param post_title:
+    :param title:
     :return:
     """
     if 'youtube' in platforms or 'tiktok' in platforms:
@@ -838,8 +870,8 @@ def image(image_link, local_image_file, output_file_name, post_description, skip
         image_url=image_link, local_image_location=os.path.expanduser(local_image_file),
         output_filename=output_file_name,
         post_description=post_description,
-        skip_duplicate_check=skip_duplicate_check, scheduled_date=scheduled_date,
-        platforms=platforms.split(',') if "," in platforms else [platforms], post_title=post_title
+        skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule,
+        platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title
     )
 
     bot.post_image()
