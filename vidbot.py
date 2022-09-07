@@ -134,7 +134,10 @@ class VidBot(object):
 
         self.application_config = application_config
         self.already_clipped = already_clipped
-        self.ffmpeg = ffmpeg
+        self.ffmpeg = ffmpeg  # Whether or not to use ffmpeg to extract the subclip
+        self.created_files = [
+            "tempaudio.m4a"
+        ]  # This will be removed after upload & such :)
 
     def is_local_video(self):
         """
@@ -253,23 +256,27 @@ class VidBot(object):
             ffmpeg_extract_subclip(self.output_filename, start_time, end_time, targetname=f"sub_{self.output_filename}")
             self.output_filename = f"sub_{self.output_filename}"
             print("New filename: ", self.output_filename)
+            self.created_files.append(f"sub_{self.output_filename}")
             # write the entry to the db
         else:
             self.clip = self.video.subclip(start_time, end_time)
             audio_clip = self.video.audio.subclip(start_time, end_time)
-
-            self.clip = self.clip.set_audio(audio_clip)
-            self.clip.write_videofile(f"{self.output_filename}",
-                                      temp_audiofile=f"{self.output_filename.replace('.', '_')}_tempaudio.m4a",
-                                      codec="libx264",
-                                      audio_codec="aac", remove_temp=False)
+            #
+            # self.clip = self.clip.set_audio(audio_clip)
+            self.clip.write_videofile(f"clip_{self.output_filename}",
+                                      temp_audiofile=f"tempaudio.m4a",
+                                      audio_codec="aac", remove_temp=False,codec="libx264")
+            # self.created_files.append(f"{self.output_filename.replace('.', '_')}_tempaudio.m4a")
+            self.created_files.append(f"{self.output_filename}")
+            self.created_files.append(f"clip_{self.output_filename}")
+            self.clip.preview()
             self.clip.close()
             # invoke ffmpeg to append audio subclip.
             import subprocess as sp
             command = ['ffmpeg',
                        '-y',  # approve output file overwite
                        '-i', f"{self.output_filename}",
-                       '-i', f"{self.output_filename.replace('.', '_')}_tempaudio.m4a",
+                       '-i', f"tempaudio.m4a",
                        '-c:v', 'copy',
                        '-c:a', 'aac',  # to convert mp3 to aac
                        '-shortest',
@@ -604,6 +611,14 @@ class VidBot(object):
 
         if "tiktok" in self.platforms:
             print("Open your TiKTok app to describe, hashtag & approve the upload.")
+
+        if len(self.created_files) > 0:
+            click.echo("Cleaning up files...")
+            for file in self.created_files:
+                os.remove(file)
+                print(f"Removed {file}")
+
+        print("Enjoy!")
 
 
 from webapp import create_app
