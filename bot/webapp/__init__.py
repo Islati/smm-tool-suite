@@ -1,5 +1,5 @@
 from flask import Flask
-from webapp.extensions import db, migrations, mail
+from bot.webapp.extensions import db, migrations, mail
 
 
 def create_app(configuration=None) -> Flask:
@@ -10,14 +10,15 @@ def create_app(configuration=None) -> Flask:
     migrations.init_app(app=app, db=db)
     mail.init_app(app=app)
 
-    from webapp import models
+    from bot.webapp import models
     app.app_context().push()
 
     @app.shell_context_processor
     def shell_context():
         return {
             'db': db,
-            'app': app
+            'app': app,
+            'mail': mail
         }
 
     app.logger.info("Flask Application Created")

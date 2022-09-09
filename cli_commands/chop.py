@@ -2,7 +2,7 @@ import os
 
 import click
 
-from vidbot import VidBot
+from bot import VidBot
 
 
 def chop(youtube_video_download_link: str = None, tiktok_video_link=None, google_drive_link=None, local_video_path=None,

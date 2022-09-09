@@ -1,7 +1,7 @@
 import click
 
-from vidbot import VidBot
-from webapp.models import VideoClip as BotClip
+from bot import VidBot
+from bot.webapp.models import VideoClip as BotClip
 
 def redo_clip(clip_id=None, description: str = None, skip_duplicate_check=False, schedule=None, platforms=None,
          title=None):

@@ -2,7 +2,7 @@ import os
 
 import click
 
-from vidbot import VidBot
+from bot import VidBot
 
 
 def image(image_link, local_image_file, output_file_name, post_description, skip_duplicate_check, schedule,

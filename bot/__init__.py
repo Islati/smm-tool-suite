@@ -1,122 +1,27 @@
 import datetime
 import math
 import mimetypes
+import os
 import random
 import shutil
 from pathlib import Path
-import subprocess as sp
 
+import click
+import gdown
 import maya
 import requests
-from moviepy.editor import *
+from ayrshare import SocialPost
+from moviepy.audio.io.AudioFileClip import AudioFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
 from pytube import YouTube
 from pytube.cli import on_progress
-import click
-from tabulate import tabulate
 
-from cli_commands import chop, image, upload_schedule
-from cli_commands.clips import view_clips
-from cli_commands.history import history
-from cli_commands.images import images
-from cli_commands.post_info import post_info
-from cli_commands.redo_clip import redo_clip
-from cli_commands.tiktok_download import tiktok_download
-from tiktok import TikTokDownloader
-from webapp.models import VideoClip as BotClip, MediaUpload, SocialMediaPost, ImageDb
-from webapp.config import DefaultConfig
-from ayrshare import SocialPost
+from bot.tiktok import TikTokDownloader
+from bot.utils import ffmpeg_convert_to_mp4, ffmpeg_extract_subclip, extract_hashtags
+from bot.webapp.config import DefaultConfig
+from bot.webapp.models import ImageDb, VideoClip as BotClip, MediaUpload, SocialMediaPost, VideoClip
 
-import gdown
-
-api_key = "W8ZMC7Q-PFBMXSB-JPDK8HC-NQPQCXH"
-social = SocialPost(api_key)
-
-
-# todo implement file cleanup.
-# todo implement feeds to download images from & repost them
-# implement instagram reel download & repost to platforms.
-
-
-# function to print all the hashtags in a text
-def extract_hashtags(text):
-    if text is None:
-        return []
-
-    # initializing hashtag_list variable
-    hashtag_list = []
-
-    # splitting the text into words
-    for word in text.split():
-
-        # checking the first character of every word
-        if word[0] == '#':
-            # adding the word to the hashtag_list
-            hashtag_list.append(word[1:])
-    return hashtag_list
-
-
-def ffmpeg_convert_to_mp4(filename, targetname=None):
-    command = [
-        'ffmpeg',
-        '-i', filename,
-        '-c:v', 'libx264',
-        '-c:a', 'aac',
-        '-vf', 'format=yuv420p',
-        '-movflags', '+faststart',
-        '-y', targetname
-    ]
-
-    # command = ['ffmpeg',
-    #            '-y',  # approve output file overwite
-    #            '-i', f"clip_{self.output_filename}",
-    #            '-i', f"tempaudio.m4a",
-    #            '-c:v', 'copy',
-    #            '-c:a', 'aac',  # to convert mp3 to aac
-    #            '-shortest',
-    #            f"{self.output_filename}"]
-
-    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
-    process.wait()
-
-
-def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
-    """ Makes a new video file playing video file ``filename`` between
-        the times ``t1`` and ``t2``. """
-    name, ext = os.path.splitext(filename)
-    if not targetname:
-        T1, T2 = [int(1000 * t) for t in [t1, t2]]
-        targetname = "%sSUB%d_%d.%s" % (name, T1, T2, ext)
-
-    # Convert & Subclip.
-    command = [
-        'ffmpeg',
-        '-i', filename,
-        '-c:v', 'copy',
-        '-c:a', 'copu',
-        '-movflags', '+faststart',
-        '-ss', "%0.2f" % t1,
-        "-t", "%0.2f" % (t2 - t1),
-        '-y', targetname
-    ]
-
-    # command = ['ffmpeg',
-    #            '-y',  # approve output file overwite
-    #            '-i', f"clip_{self.output_filename}",
-    #            '-i', f"tempaudio.m4a",
-    #            '-c:v', 'copy',
-    #            '-c:a', 'aac',  # to convert mp3 to aac
-    #            '-shortest',
-    #            f"{self.output_filename}"]
-
-    process = sp.Popen(command, stdout=sp.PIPE, stderr=sp.PIPE)
-    process.wait()
-    #
-    # cmd = [get_setting("FFMPEG_BINARY"), "-y",
-    #        "-i", filename,
-    #        "-ss", "%0.2f" % t1,
-    #        "-map", "0", "-vcodec", "h264", "-acodec", "aac", targetname]
-
-    # subprocess_call(cmd)
+social = SocialPost(DefaultConfig.API_KEY)
 
 
 class VidBot(object):
@@ -441,7 +346,7 @@ class VidBot(object):
         """
         return random.randint(0 + self.skip_intro_time, math.floor(self.video.duration - self.clip_length))
 
-    def upload_file_to_cloud(self, video_clip: VideoClip = None, image: ImageDb = None):
+    def upload_file_to_cloud(self, video_clip: BotClip = None, image: ImageDb = None):
         """
         Uploads the video clip to social media via the API.
         :return:
@@ -474,7 +379,7 @@ class VidBot(object):
 
         # retrieve the information
         req = requests.get("https://app.ayrshare.com/api/media/uploadUrl",
-                           headers={'Authorization': f'Bearer {api_key}'},
+                           headers={'Authorization': f'Bearer {self.application_config.API_KEY}'},
                            params={'contentType': content_type,
                                    'fileName': f"{filename}"})
 
@@ -694,7 +599,8 @@ class VidBot(object):
                 post_data['post'] = post_data['post'][0:260]
                 print('post data trimmed to  {}'.format(len(post_data['post'])))
             # Post the request to AYRShare.
-            resp = requests.post("https://app.ayrshare.com/api/post", headers={'Authorization': f'Bearer {api_key}'},
+            resp = requests.post("https://app.ayrshare.com/api/post",
+                                 headers={'Authorization': f'Bearer {self.application_config.API_KEY}'},
                                  json=post_data)
             if resp.status_code == 200:
                 resp = resp.json()
@@ -882,190 +788,3 @@ class VidBot(object):
                 except:
                     pass
         print("Enjoy!")
-
-
-from webapp import create_app
-from webapp.config import DefaultConfig
-
-from cli_commands import cli
-
-config = DefaultConfig()
-flask_app = create_app(config)
-
-
-@cli.command('run')
-@click.option('--yt', '-yt', 'youtube_video_download_link', type=str, default=None, help="Link to the youtube video")
-@click.option('--tiktok', '-tik', 'tiktok_video_link', type=str, required=False, default=None,
-              help="Link to the tiktok video")
-@click.option('--gd', '-gd', 'google_drive_link', type=str, required=False, default=None,
-              help="Link to the google drive video")
-@click.option('--local', "local_video_path", type=str, default=None, required=False,
-              help="Link to the local video (path)")
-@click.option('--length', '-l', "clip_length", default=-1, help="Length of the clip in seconds")
-@click.option('--skip', '-s', "skip_intro_time", default=0, help="Skip the first x seconds of the video")
-@click.option('--output', '-o', "output_filename", default=f"output.mp4",
-              help="Output path for the video clip", prompt="Filename for your clip")
-@click.option("--description", "-d", "description", default=None, help="Description for the post.")
-@click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
-              help="Force the post of the video, skipping duplicate cuts.")
-@click.option('--schedule', '-t', "schedule", default=None,
-              help="Example: tomorrow 10:00 am. If not specified, the video will be posted immediately.")
-@click.option('--platforms', '-p', "platforms", default="tiktok,instagram,facebook,twitter,youtube")
-@click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
-@click.option('--start', '-st', 'start_time', required=False, default=-1,
-              help="Start time of the clip (default random start time)")
-@click.option('--ffmpeg', '-fm', 'ffmpeg', required=False, default=False, help="Use ffmpeg to cut the video",
-              is_flag=True)
-@click.option('--no-cleanup', '-nc', 'no_cleanup', required=False, is_flag=True, default=False,
-              help="Do not cleanup the files")
-def chop_video(youtube_video_download_link: str = None, tiktok_video_link=None, google_drive_link=None,
-               local_video_path=None,
-               clip_length=33,
-               skip_intro_time=0,
-               output_filename: str = None,
-               description: str = None,
-               start_time: int = None,
-               skip_duplicate_check=False, schedule=None, platforms=None, title=None, ffmpeg=False, no_cleanup=True):
-    """
-    Chop a video and post it on social media.
-    :param youtube_video_download_link: Youtube video link.
-    :param clip_length:
-    :param skip_intro_time:
-    :param output_filename:
-    :param description:
-    :param skip_duplicate_check:
-    :param schedule:
-    :param platforms:
-    :return:
-    """
-    chop(youtube_video_download_link=youtube_video_download_link, output_filename=output_filename,
-         description=description, start_time=start_time, tiktok_video_link=tiktok_video_link,
-         google_drive_link=google_drive_link, local_video_path=local_video_path, clip_length=clip_length,
-         skip_intro_time=skip_intro_time, skip_duplicate_check=skip_duplicate_check, schedule=schedule,
-         platforms=platforms, title=title, ffmpeg=ffmpeg, no_cleanup=no_cleanup)
-
-
-@cli.command('image')
-@click.option('--image', '-i', 'image_link', type=str, required=False, default=None, help="Image link")
-@click.option('--local', "local_image_file", type=str, default=None, required=False, help="Local image path")
-@click.option('--output', '-o', "output_file_name", default=None,
-              help="Output path for the video clip")
-@click.option("--description", "-d", "post_description", default=None, help="Description for the post.")
-@click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
-              help="Force the post of the video, skipping duplicate cuts.")
-@click.option('--schedule', '-t', "schedule", default=None,
-              help="Example: tomorrow 10:00 am. If not specified, the video will be posted immediately.")
-@click.option('--platforms', '-p', "platforms", default="instagram,facebook,twitter")
-@click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
-def image_post(image_link, local_image_file, output_file_name, post_description, skip_duplicate_check, schedule,
-               platforms, title):
-    """
-    Crate an image post on social media.
-    :param image_link: link to the image (online)
-    :param local_image_file: local image location
-    :param output_file_name: output file name (for downloaded file)
-    :param post_description: post body.
-    :param skip_duplicate_check:
-    :param schedule:
-    :param platforms:
-    :param title:
-    :return:
-    """
-    image(image_link=image_link, local_image_file=local_image_file, output_file_name=output_file_name,
-          post_description=post_description, skip_duplicate_check=skip_duplicate_check, schedule=schedule,
-          platforms=platforms, title=title)
-
-
-@cli.command('set_upload_schedule')
-def set_upload_schedule():
-    """
-    Set the upload schedule for the videos.
-    :return:
-    """
-    upload_schedule()
-
-
-@cli.command('tiktok_download')
-@click.argument('url')
-@click.argument("output_filename")
-def download_tiktok(url, output_filename):
-    """
-    Download a video from TikTok (Without watermark)
-    :param url: tiktok video url
-    :param output_filename: local file output
-    """
-    tiktok_download(url, output_filename)
-
-
-@cli.command('images')
-def image_posts():
-    """
-    Print all image posts created (from the database)
-    :return:
-    """
-    images()
-
-
-@cli.command('clips')
-def clips():
-    """
-    View the clips that have been created.
-    :return:
-    """
-    view_clips()
-
-
-@cli.command('redo_clip', help="Post a specific cut of a video to the linked social media accounts")
-@click.argument("clip_id")
-@click.option('--description', '-d', "description", prompt="Description for the upload.")
-@click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
-              help="Force the post of the video, skipping duplicate checks.")
-@click.option('--schedule', '-t', "schedule", default=None,
-              help="Example: Tomorrow at 4:20 pm. If not specified, the video will be posted immediately.")
-@click.option('--platforms', '-p', "platforms", default="tiktok,instagram,facebook,twitter,youtube")
-@click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
-def redo(clip_id=None, description: str = None, skip_duplicate_check=False, schedule=None, platforms=None,
-         title=None):
-    """
-    Repost a previously edited clip.
-    :param clip_id:
-    :param description:
-    :param skip_duplicate_check:
-    :param schedule:
-    :param platforms:
-    :param title: Provide this if you're giving the clip a new title.
-    :return:
-    """
-    redo_clip(clip_id=clip_id, description=description, skip_duplicate_check=skip_duplicate_check, schedule=schedule,
-              platforms=platforms, title=title)
-
-
-@cli.command('history')
-@click.option('--last-days', '-d', "last_days", default=30, help="Number of days to look back.")
-@click.option('--last-records', '-r', "last_records", default=100, help="Number of records to look back.")
-def history_print(last_days, last_records):
-    """
-    View post history from the Ayrshare api (messy)
-    :param last_days:
-    :param last_records:
-    :return:
-    """
-    history(last_days=last_days, last_records=last_records)
-
-
-@cli.command('post_info')
-@click.option('--clip-id', '-c', "clip_id", default=None, help="Post ID to get info for.")
-@click.option('--image-id', '-i', 'image_id', default=None, help="Image ID to get post info for.")
-@click.option('--url', '-u', "url", default=None, help="URL of media (vid / image) object to get post info for.")
-def post_details(clip_id=None, url=None, image_id=None, print_intro_header=True):
-    """
-    View information about a post via its clip id (acquired using the clips command) or video url.
-    :param clip_id:
-    :param video_url:
-    :return:
-    """
-    post_info(clip_id=clip_id, url=url, image_id=image_id, print_intro_header=print_intro_header)
-
-
-if __name__ == '__main__':
-    cli()

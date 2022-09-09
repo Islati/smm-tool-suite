@@ -4,7 +4,7 @@ import maya
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import backref
 
-from webapp.database import db, SqlModel, SurrogatePK, TimeMixin
+from bot.webapp.database import db, SqlModel, SurrogatePK, TimeMixin
 
 """
 Secondary table for the social media posts to show many-to-many relationship with hashtags.
@@ -12,6 +12,22 @@ Secondary table for the social media posts to show many-to-many relationship wit
 post_hashtags_table = db.Table('post_hashtags',
                                db.Column('post_id', db.Integer, db.ForeignKey('social_media_posts.id')),
                                db.Column('hashtag_id', db.Integer, db.ForeignKey('hashtags.id')))
+
+
+class MailMessage(SurrogatePK, TimeMixin, SqlModel):
+    """
+    Sent mail message to person.
+    """
+    __tablename__ = 'mail_messages'
+
+    email = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.Text, nullable=False)
+    subject = db.Column(db.String(255), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    sent = db.Column(db.Boolean, default=False, nullable=False)
+
+    def __repr__(self):
+        return f"MailMessage(id={self.id}, to={self.to}, subject={self.subject}, sent={self.sent}, name={self.name})"
 
 
 class Hashtag(SurrogatePK, TimeMixin, SqlModel):

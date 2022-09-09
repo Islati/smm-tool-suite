@@ -1,12 +1,12 @@
 import requests
 
-from vidbot import api_key
+from bot.webapp.config import DefaultConfig
 
 
 def history(last_days,last_records):
     req = requests.get('https://app.ayrshare.com/api/history',
                        params={'lastDays': last_days, 'lastRecords': last_records},
-                       headers={'Authorization': f'Bearer {api_key}'})
+                       headers={'Authorization': f'Bearer {DefaultConfig.API_KEY}'})
 
     from pprint import pprint
     pprint(req.json())

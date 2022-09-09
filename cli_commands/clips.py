@@ -1,7 +1,7 @@
 import click
 from tabulate import tabulate
 
-from webapp.models import VideoClip as BotClip
+from bot.webapp.models import VideoClip as BotClip
 
 def view_clips():
     clips = BotClip.query.all()

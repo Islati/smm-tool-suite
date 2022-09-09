@@ -1,7 +1,7 @@
 import click
 from tabulate import tabulate
 
-from webapp.models import ImageDb
+from bot.webapp.models import ImageDb
 
 
 def images():

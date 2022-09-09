@@ -4,7 +4,7 @@
     """
 import click
 
-from vidbot import social
+from bot import social
 
 def upload_schedule():
     resp = social.setAutoSchedule({

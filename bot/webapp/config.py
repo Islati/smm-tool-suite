@@ -11,20 +11,22 @@ class Config(object):
         ('[yttitle]', lambda vidbot: vidbot.yt_vid.title),
     ]
 
-    MAIL_SERVER= 'localhost'
-    MAIL_PORT=25
-    MAIL_USE_TLS=False
-    MAIL_USE_SSL=False
-    MAIL_DEBUG=True
-    MAIL_USERNAME=None
-    MAIL_PASSWORD=None
-    MAIL_DEFAULT_SENDER=None
-    MAIL_MAX_EMAILS=None
-    MAIL_SUPPRESS_SEND=False
-    MAIL_ASCII_ATTACHMENTS=False
+    MAIL_SERVER = 'smtp.mailtrap.io'
+    MAIL_PORT = 2525
+    MAIL_USE_TLS = True
+    MAIL_USE_SSL = False
+    MAIL_DEBUG = True
+    MAIL_USERNAME = "d9dc9342b9dd8c"
+    MAIL_PASSWORD = "7f510c33d434f1"
+    MAIL_DEFAULT_SENDER = None
+    MAIL_MAX_EMAILS = None
+    MAIL_SUPPRESS_SEND = False
+    MAIL_ASCII_ATTACHMENTS = False
+
+    API_KEY = "W8ZMC7Q-PFBMXSB-JPDK8HC-NQPQCXH"
 
 
-class DefaultConfig(object):
+class DefaultConfig(Config):
     """
     Configure the applications values & behaviour.
     """
