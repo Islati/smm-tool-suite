@@ -24,7 +24,17 @@ class MailMessage(SurrogatePK, TimeMixin, SqlModel):
     name = db.Column(db.Text, nullable=False)
     subject = db.Column(db.String(255), nullable=False)
     body = db.Column(db.Text, nullable=False)
+    html = db.Column(db.Text, nullable=True)
     sent = db.Column(db.Boolean, default=False, nullable=False)
+
+    def __init__(self, email, name, subject, body, html=None):
+        super().__init__(
+            email=email,
+            name=name,
+            subject=subject,
+            body=body,
+            html=html
+        )
 
     def __repr__(self):
         return f"MailMessage(id={self.id}, to={self.to}, subject={self.subject}, sent={self.sent}, name={self.name})"

@@ -199,15 +199,28 @@ def post_details(clip_id=None, url=None, image_id=None, print_intro_header=True)
 
 @cli.command('mail')
 @click.option('--subject', '-s', "subject", default=None, help="Subject of the email.")
-@click.option('--template', '-t', 'template', default=None, help="Template to use for the email.")
+@click.option('--html-template', 'html_template', default=None, help="Template to use for the email.")
+@click.option('--txt-template', 'txt_template', default=None, help="Template to use for the email.")
 @click.option('--csv', '-c', 'csv_file_location', default=None, help="CSV file to use for the email.")
-def mail(csv_file_location,subject,template):
+@click.option('--sleep-from', '-f', 'sleep_min', default=1, help="Time to start sending emails.")
+@click.option('--sleep-to', '-t', 'sleep_max', default=3, help="Time to start sending emails.")
+def mail(csv_file_location, subject, html_template, txt_template, sleep_min, sleep_max):
     """
     Send an email to a list of recipients loaded from csv files.
     :param csv_file_location:
     :return:
     """
-    mail_send(csv_file_location=os.path.expanduser(csv_file_location), skip_duplicates=False, check_recent=False, recent_days_check=30)
+    mail_send(
+        csv_file_location=os.path.expanduser(csv_file_location),
+        skip_duplicates=False,
+        check_recent=False,
+        recent_days_check=30,
+        html_email_template=html_template,
+        txt_email_template=txt_template,
+        subject=subject,
+        sleep_min=sleep_min,
+        sleep_max=sleep_max
+    )
 
 
 if __name__ == '__main__':

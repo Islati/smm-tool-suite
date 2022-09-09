@@ -597,7 +597,7 @@ class VidBot(object):
 
             if platform == "twitter":
                 post_data['post'] = post_data['post'][0:260]
-                print('post data trimmed to  {}'.format(len(post_data['post'])))
+                print('post templates trimmed to  {}'.format(len(post_data['post'])))
             # Post the request to AYRShare.
             resp = requests.post("https://app.ayrshare.com/api/post",
                                  headers={'Authorization': f'Bearer {self.application_config.API_KEY}'},

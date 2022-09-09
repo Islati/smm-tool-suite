@@ -15,7 +15,7 @@ class Config(object):
     MAIL_PORT = 2525
     MAIL_USE_TLS = True
     MAIL_USE_SSL = False
-    MAIL_DEBUG = True
+    MAIL_DEBUG = False
     MAIL_USERNAME = "d9dc9342b9dd8c"
     MAIL_PASSWORD = "7f510c33d434f1"
     MAIL_DEFAULT_SENDER = None
