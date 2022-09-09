@@ -129,7 +129,7 @@ class VidBot(object):
                  subclip_start=-1, scheduled_date=None,
                  post_title=None,
                  platforms=["tiktok", "instagram", "twitter", "facebook", "youtube"],
-                 application_config=DefaultConfig(), already_clipped=False, ffmpeg=False):
+                 application_config=DefaultConfig(), already_clipped=False, ffmpeg=False, no_cleanup=False):
         """
         Initializes the VidBot class with the defined configuration.
         :param youtube_video_download_link: Youtube video download link
@@ -198,6 +198,7 @@ class VidBot(object):
         ]  # This will be removed after upload & such :)
 
         self.downloaded_file_path = None
+        self.no_cleanup = no_cleanup
 
     @property
     def output_filename(self):
@@ -345,7 +346,7 @@ class VidBot(object):
         if self.google_drive_link is not None:
             return self.google_drive_link
 
-        return None
+        return self.local_video_clip_location
 
     def create_video_clip(self):
         """
@@ -405,7 +406,7 @@ class VidBot(object):
                        '-y',  # approve output file overwite
                        '-i', f"clip_{self.output_filename}",
                        '-i', f"tempaudio.m4a",
-                       '-c:v', 'copy',
+                       '-c:v', 'libx264',
                        '-c:a', 'aac',  # to convert mp3 to aac
                        '-shortest',
                        f"{self.output_filename}"]
@@ -447,10 +448,7 @@ class VidBot(object):
         filename = None
 
         if video_clip is not None:
-            if self.local_video_clip_location is not None:
-                filename = self.local_video_clip_location
-            else:
-                filename = self.output_filename
+            filename = self.output_filename
 
             content_type = mimetypes.guess_type(filename)[0]
 
@@ -562,7 +560,7 @@ class VidBot(object):
             return False
 
         mimetype = mimetypes.guess_type(file)[0]
-        return "video" in mimetype
+        return "video" in mimetype or 'gif' in mimetype
 
     def parse_tags(self, string):
         """
@@ -810,7 +808,7 @@ class VidBot(object):
             if click.prompt("Delete local image?", type=bool, default=False):
                 os.remove(self.local_image_location)
 
-        if self.output_filename is not None:
+        if self.output_filename is not None and self.no_cleanup is False:
             os.remove(self.output_filename)
         print("~ Exiting...")
         return
@@ -829,6 +827,15 @@ class VidBot(object):
         if not self.downloaded and (
                 self.google_drive_link is not None or self.youtube_video_download_link is not None or self.tiktok_video_url is not None):
             video_path = self.download_video()
+
+        if self.local_video_clip_location is not None:
+            if "mp4" not in mimetypes.guess_type(self.local_video_clip_location)[0]:
+                print(f"Converting file to MP4 Format: {self.local_video_clip_location} to {self.output_filename}")
+                ffmpeg_convert_to_mp4(self.local_video_clip_location, targetname=self.output_filename)
+
+                self.video_path = self.output_filename
+                self.video = VideoFileClip(self.output_filename)
+                self.audio = self.video.audio
 
         clip_path, clip_record = None, None
         clip_path, clip_record = self.create_video_clip()
@@ -861,7 +868,7 @@ class VidBot(object):
         if "tiktok" in self.platforms:
             print("Open your TiKTok app to describe, hashtag & approve the upload.")
 
-        if len(self.created_files) > 0:
+        if len(self.created_files) > 0 and self.no_cleanup is False:
             click.echo("Cleaning up files...")
             for file in self.created_files:
                 try:
@@ -895,7 +902,7 @@ def cli():
               help="Link to the local video (path)")
 @click.option('--length', '-l', "clip_length", default=-1, help="Length of the clip in seconds")
 @click.option('--skip', '-s', "skip_intro_time", default=0, help="Skip the first x seconds of the video")
-@click.option('--output', '-o', "output_filename", default=f"{datetime.datetime.utcnow().timestamp()}",
+@click.option('--output', '-o', "output_filename", default=f"output.mp4",
               help="Output path for the video clip", prompt="Filename for your clip")
 @click.option("--description", "-d", "description", default=None, help="Description for the post.")
 @click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
@@ -906,15 +913,17 @@ def cli():
 @click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
 @click.option('--start', '-st', 'start_time', required=False, default=-1,
               help="Start time of the clip (default random start time)")
-@click.option('--fmpeg', '-fm', 'ffmpeg', required=False, default=False, help="Use ffmpeg to cut the video",
+@click.option('--ffmpeg', '-fm', 'ffmpeg', required=False, default=False, help="Use ffmpeg to cut the video",
               is_flag=True)
+@click.option('--no-cleanup', '-nc', 'no_cleanup', required=False, is_flag=True, default=False,
+              help="Do not cleanup the files")
 def chop(youtube_video_download_link: str = None, tiktok_video_link=None, google_drive_link=None, local_video_path=None,
          clip_length=33,
          skip_intro_time=0,
          output_filename: str = None,
          description: str = None,
          start_time: int = None,
-         skip_duplicate_check=False, schedule=None, platforms=None, title=None, ffmpeg=False):
+         skip_duplicate_check=False, schedule=None, platforms=None, title=None, ffmpeg=False, no_cleanup=True):
     """
     Chop a video and post it on social media.
     :param youtube_video_download_link: Youtube video link.
@@ -947,7 +956,8 @@ def chop(youtube_video_download_link: str = None, tiktok_video_link=None, google
                  output_filename=output_filename,
                  subclip_start=start_time,
                  post_description=description, skip_duplicate_check=skip_duplicate_check, scheduled_date=schedule,
-                 platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title, ffmpeg=ffmpeg)
+                 platforms=platforms.split(',') if "," in platforms else [platforms], post_title=title, ffmpeg=ffmpeg,
+                 no_cleanup=no_cleanup)
     bot.chop_and_post_video()
 
 
