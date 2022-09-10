@@ -14,13 +14,52 @@ post_hashtags_table = db.Table('post_hashtags',
                                db.Column('hashtag_id', db.Integer, db.ForeignKey('hashtags.id')))
 
 
+class SentMail(SurrogatePK, TimeMixin, SqlModel):
+    """
+    Messages sent to users.
+    """
+    __tablename__ = "sent_mail"
+
+    contact_id = db.Column(db.Integer, db.ForeignKey("contacts.id"), nullable=False)
+    contact = db.relationship("Contact", backref=backref('sent_mail', uselist=True), uselist=False)
+
+    mail_id = db.Column(db.Integer, db.ForeignKey("mail_messages.id"), nullable=False)
+    mail = db.relationship("MailMessage", backref=backref('sent_mail', uselist=True), uselist=False)
+
+    def __init__(self, contact, mail):
+        super().__init__(
+            contact=contact,
+            contact_id=contact.id,
+            mail=mail,
+            mail_id=mail.id
+        )
+
+
+class Contact(SurrogatePK, TimeMixin, SqlModel):
+    __tablename__ = "contacts"
+
+    full_name = db.Column(db.Text, nullable=False)
+    instagram_url = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), nullable=False)
+    bio = db.Column(db.Text, nullable=True)
+    business = db.Column(db.Boolean, default=False, nullable=False)
+
+    def __init__(self, full_name, instagram_url, email, bio, business):
+        super().__init__(
+            full_name=full_name,
+            instagram_url=instagram_url,
+            email=email,
+            business=business,
+            bio=bio
+        )
+
+
 class MailMessage(SurrogatePK, TimeMixin, SqlModel):
     """
-    Sent mail message to person.
+    Message that is sent via mail. Re-used across multiple users.
     """
     __tablename__ = 'mail_messages'
 
-    email = db.Column(db.String(255), nullable=False)
     name = db.Column(db.Text, nullable=False)
     subject = db.Column(db.String(255), nullable=False)
     body = db.Column(db.Text, nullable=False)
