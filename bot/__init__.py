@@ -21,7 +21,7 @@ from bot.utils import ffmpeg_convert_to_mp4, ffmpeg_extract_subclip, extract_has
 from bot.webapp.config import DefaultConfig
 from bot.webapp.models import ImageDb, VideoClip as BotClip, MediaUpload, SocialMediaPost, VideoClip
 
-social = SocialPost(DefaultConfig.API_KEY)
+social = SocialPost(DefaultConfig.MAILTRAP_API_KEY)
 
 
 class VidBot(object):
@@ -379,7 +379,7 @@ class VidBot(object):
 
         # retrieve the information
         req = requests.get("https://app.ayrshare.com/api/media/uploadUrl",
-                           headers={'Authorization': f'Bearer {self.application_config.API_KEY}'},
+                           headers={'Authorization': f'Bearer {self.application_config.MAILTRAP_API_KEY}'},
                            params={'contentType': content_type,
                                    'fileName': f"{filename}"})
 
@@ -597,10 +597,10 @@ class VidBot(object):
 
             if platform == "twitter":
                 post_data['post'] = post_data['post'][0:260]
-                print('post templates trimmed to  {}'.format(len(post_data['post'])))
+                print('post emails trimmed to  {}'.format(len(post_data['post'])))
             # Post the request to AYRShare.
             resp = requests.post("https://app.ayrshare.com/api/post",
-                                 headers={'Authorization': f'Bearer {self.application_config.API_KEY}'},
+                                 headers={'Authorization': f'Bearer {self.application_config.MAILTRAP_API_KEY}'},
                                  json=post_data)
             if resp.status_code == 200:
                 resp = resp.json()

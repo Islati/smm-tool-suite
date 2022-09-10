@@ -1,7 +1,11 @@
 import os.path
 
 import click
+from flask_mail import Message
+
 from cli_commands import chop, image, upload_schedule
+from cli_commands.email_templates import add_email_template_command, view_email_templates_command, \
+    delete_email_template_command
 from cli_commands.clips import view_clips
 from cli_commands.gui import gui
 from cli_commands.history import history
@@ -11,7 +15,7 @@ from cli_commands.post_info import post_info
 from cli_commands.redo_clip import redo_clip
 from cli_commands.tiktok_download import tiktok_download
 
-from bot.webapp import create_app
+from bot.webapp import create_app, mail
 from bot.webapp.config import DefaultConfig
 
 from cli_commands import cli
@@ -198,6 +202,45 @@ def post_details(clip_id=None, url=None, image_id=None, print_intro_header=True)
     post_info(clip_id=clip_id, url=url, image_id=image_id, print_intro_header=print_intro_header)
 
 
+@cli.command('delete-email-template')
+@click.option('--id', '-i', "template_id", default=None, help="Template ID to delete.")
+def delete_email_template(template_id):
+    delete_email_template_command(template_id=template_id)
+
+
+@cli.command("add-email-template")
+@click.option('--name', '-n', "name", default=None, help="Name of the template.")
+@click.option('--file', '-f', "file", default=None, help="File path to the template.")
+@click.option('--subject', '-s', "subject", default=None, help="Subject of the email.")
+def add_email_template(name, file, subject):
+    """
+    Add an email template to the database for use in emailing.
+    Will update existing entry with new information if the name already exists.
+    :return:
+    """
+    add_email_template_command(name=name, file=os.path.expanduser(file), subject=subject)
+
+
+@cli.command("view-email-templates")
+def view_email_templates():
+    """
+    View the email templates in the database.
+    :return:
+    """
+    view_email_templates_command()
+
+
+@cli.command('test_mail')
+def test_mail():
+    """
+    Test mail sending
+    :return:
+    """
+    msg = Message(subject="Test", recipients=["islati.sk@gmail.com"], body="Test", sender="islati@skreet.ca")
+    mail.send(msg)
+    click.echo(f"Test mail sent.")
+
+
 @cli.command('mail')
 @click.option('--subject', '-s', "subject", default=None, help="Subject of the email.")
 @click.option('--html-template', 'html_template', default=None, help="Template to use for the email.")
@@ -205,7 +248,7 @@ def post_details(clip_id=None, url=None, image_id=None, print_intro_header=True)
 @click.option('--csv', '-c', 'csv_file_location', default=None, help="CSV file to use for the email.")
 @click.option('--sleep-from', '-f', 'sleep_min', default=1, help="Time to start sending emails.")
 @click.option('--sleep-to', '-t', 'sleep_max', default=3, help="Time to start sending emails.")
-def mail(csv_file_location, subject, html_template, txt_template, sleep_min, sleep_max):
+def mail_command(csv_file_location, subject, html_template, txt_template, sleep_min, sleep_max):
     """
     Send an email to a list of recipients loaded from csv files.
     :param csv_file_location:
@@ -222,6 +265,7 @@ def mail(csv_file_location, subject, html_template, txt_template, sleep_min, sle
         sleep_min=sleep_min,
         sleep_max=sleep_max
     )
+
 
 @cli.command('gui')
 def run_gui():

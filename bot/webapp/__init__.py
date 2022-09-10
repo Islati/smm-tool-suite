@@ -12,7 +12,7 @@ def debug(message):
 
 
 def create_app(configuration=None) -> Flask:
-    app = Flask(__name__, template_folder='templates', static_folder='static')
+    app = Flask(__name__, template_folder='emails', static_folder='static')
     app.config.from_object(configuration)
 
     db.init_app(app=app)
@@ -29,6 +29,17 @@ def create_app(configuration=None) -> Flask:
             'app': app,
             'mail': mail
         }
+
+    mail_settings = {
+        "MAIL_SERVER": 'smtp.gmail.com',
+        "MAIL_PORT": 465,
+        "MAIL_USE_TLS": False,
+        "MAIL_USE_SSL": True,
+        "MAIL_USERNAME": "islati.sk@gmail.com",
+        "MAIL_PASSWORD": "32buttcheeks!"
+    }
+
+    app.config.update(mail_settings)
 
     @app.route('/')
     def index():

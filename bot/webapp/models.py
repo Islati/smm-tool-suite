@@ -36,6 +36,9 @@ class SentMail(SurrogatePK, TimeMixin, SqlModel):
 
 
 class Contact(SurrogatePK, TimeMixin, SqlModel):
+    """
+    Contact information for a user.
+    """
     __tablename__ = "contacts"
 
     full_name = db.Column(db.Text, nullable=False)
@@ -43,14 +46,16 @@ class Contact(SurrogatePK, TimeMixin, SqlModel):
     email = db.Column(db.String(255), nullable=False)
     bio = db.Column(db.Text, nullable=True)
     business = db.Column(db.Boolean, default=False, nullable=False)
+    valid = db.Column(db.Boolean, default=False, nullable=False)
 
-    def __init__(self, full_name, instagram_url, email, bio, business):
+    def __init__(self, full_name, instagram_url, email, bio, business, valid):
         super().__init__(
             full_name=full_name,
             instagram_url=instagram_url,
             email=email,
             business=business,
-            bio=bio
+            bio=bio,
+            valid=valid
         )
 
 
@@ -60,15 +65,13 @@ class MailMessage(SurrogatePK, TimeMixin, SqlModel):
     """
     __tablename__ = 'mail_messages'
 
-    name = db.Column(db.Text, nullable=False)
+    name = db.Column(db.Text, nullable=False, unique=True)
     subject = db.Column(db.String(255), nullable=False)
     body = db.Column(db.Text, nullable=False)
     html = db.Column(db.Text, nullable=True)
-    sent = db.Column(db.Boolean, default=False, nullable=False)
 
-    def __init__(self, email, name, subject, body, html=None):
+    def __init__(self, name, subject, body, html=None):
         super().__init__(
-            email=email,
             name=name,
             subject=subject,
             body=body,
@@ -76,7 +79,7 @@ class MailMessage(SurrogatePK, TimeMixin, SqlModel):
         )
 
     def __repr__(self):
-        return f"MailMessage(id={self.id}, to={self.to}, subject={self.subject}, sent={self.sent}, name={self.name})"
+        return f"MailMessage(id={self.id}, to={self.to}, subject={self.subject},name={self.name})"
 
 
 class Hashtag(SurrogatePK, TimeMixin, SqlModel):

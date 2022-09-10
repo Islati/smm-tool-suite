@@ -11,36 +11,26 @@ class Config(object):
         ('[yttitle]', lambda vidbot: vidbot.yt_vid.title),
     ]
 
-    MAIL_SERVER = 'send.smtp.mailtrap.io'
-    MAIL_PORT = 2525
-    MAIL_USE_TLS = True
-    MAIL_USE_SSL = False
-    MAIL_DEBUG = False
-    MAIL_USERNAME = "api"
-    MAIL_PASSWORD = "7b429c3625cf15470335e54fefa942a8"
+    MAIL_SERVER = 'smtp.sendgrid.net'
+    MAIL_PORT = 465
+    MAIL_USE_TLS = False
+    MAIL_USE_SSL = True
+    MAIL_DEBUG = True
+    MAIL_USERNAME = "apikey"
+    MAIL_PASSWORD = "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"
     MAIL_DEFAULT_SENDER = None
     MAIL_MAX_EMAILS = None
     MAIL_SUPPRESS_SEND = False
     MAIL_ASCII_ATTACHMENTS = False
 
-    API_KEY = "W8ZMC7Q-PFBMXSB-JPDK8HC-NQPQCXH"
+    MAILTRAP_API_KEY = "W8ZMC7Q-PFBMXSB-JPDK8HC-NQPQCXH"
+    SENDGRID_API_KEY = "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"
 
 
 class DefaultConfig(Config):
     """
     Configure the applications values & behaviour.
     """
-    MAIL_SERVER = 'send.smtp.mailtrap.io'
-    MAIL_PORT = 2525
-    MAIL_USE_TLS = True
-    MAIL_USE_SSL = False
-    MAIL_DEBUG = False
-    MAIL_USERNAME = "api"
-    MAIL_PASSWORD = "7b429c3625cf15470335e54fefa942a8"
-    MAIL_DEFAULT_SENDER = None
-    MAIL_MAX_EMAILS = None
-    MAIL_SUPPRESS_SEND = False
-    MAIL_ASCII_ATTACHMENTS = False
 
     Debug = True
     SQLALCHEMY_DATABASE_URI = "postgresql://islatisk@localhost:5432/vidbot"

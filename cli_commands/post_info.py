@@ -139,7 +139,7 @@ def post_info(clip_id=None, url=None, image_id=None, print_intro_header=True):
 
         for post in posts_with_clip:
             req = requests.get(f'https://app.ayrshare.com/api/history/{post.api_id}',
-                               headers={'Authorization': f'Bearer {DefaultConfig.API_KEY}'})
+                               headers={'Authorization': f'Bearer {DefaultConfig.MAILTRAP_API_KEY}'})
             resp = req.json()
 
             post_info.append(get_post_data(post, resp))
