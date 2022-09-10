@@ -1,6 +1,7 @@
 import csv
 import random
 import time
+import traceback
 
 import jellyfish
 from bs4 import BeautifulSoup
@@ -27,8 +28,6 @@ def check_message_history(cli_bar, user, message,current_message, similarity_max
     Check if in all of the history between this user we've sent them a user similar to this one!
     (Easier to check all history than just last one, often times.)
     """
-    cli_bar.set_description(f"{user} : Checking message history")
-
     if message is None:
         return False
 
@@ -81,9 +80,11 @@ def mail_send(csv_file_location, subject, html_email_template, txt_email_templat
 
         mail_message = MailMessage.query.order_by(desc(MailMessage.id)).first()
 
-        if mail_message is not None and check_message_history(_users, user, mail_message.html, html_email, similarity_max=0.60):
+        if mail_message is not None and jellyfish.jaro_winkler_similarity(html_email, mail_message.html) >= 0.75:
             _users.set_description(f"Skipping {user['email']} as we've sent them a similar message recently.")
             continue
+        else:
+            _users.set_description(f"No past email to {user['email']}")
 
         _users.set_description_str(f"Sending email to {user['full_name']} ({user['email']}")
         msg = Message(
@@ -91,7 +92,7 @@ def mail_send(csv_file_location, subject, html_email_template, txt_email_templat
             body=text_template_content,  # todo render & replace with jinja2 template
             html=html_email,
             recipients=[user['email']],
-            sender=("Islati", "islati@mailtrap.io")
+            sender=("Islati", "islati@skreet.ca")
         )
 
         mail_message = MailMessage(email=user['email'], name=user['full_name'], subject=subject, body=msg.body,
@@ -101,8 +102,11 @@ def mail_send(csv_file_location, subject, html_email_template, txt_email_templat
         try:
             mail.send(msg)
             mail_message.sent = True
+            _users.set_description("Sent email successfully.")
         except Exception as e:
             mail_message.sent = False
+            trace = traceback.format_exc()
+            print(trace)
 
         mail_message.save(commit=True)
         if not mail_message.sent:

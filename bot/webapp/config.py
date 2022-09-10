@@ -11,13 +11,13 @@ class Config(object):
         ('[yttitle]', lambda vidbot: vidbot.yt_vid.title),
     ]
 
-    MAIL_SERVER = 'smtp.mailtrap.io'
+    MAIL_SERVER = 'send.smtp.mailtrap.io'
     MAIL_PORT = 2525
     MAIL_USE_TLS = True
     MAIL_USE_SSL = False
     MAIL_DEBUG = False
-    MAIL_USERNAME = "d9dc9342b9dd8c"
-    MAIL_PASSWORD = "7f510c33d434f1"
+    MAIL_USERNAME = "api"
+    MAIL_PASSWORD = "7b429c3625cf15470335e54fefa942a8"
     MAIL_DEFAULT_SENDER = None
     MAIL_MAX_EMAILS = None
     MAIL_SUPPRESS_SEND = False
@@ -30,6 +30,17 @@ class DefaultConfig(Config):
     """
     Configure the applications values & behaviour.
     """
+    MAIL_SERVER = 'send.smtp.mailtrap.io'
+    MAIL_PORT = 2525
+    MAIL_USE_TLS = True
+    MAIL_USE_SSL = False
+    MAIL_DEBUG = False
+    MAIL_USERNAME = "api"
+    MAIL_PASSWORD = "7b429c3625cf15470335e54fefa942a8"
+    MAIL_DEFAULT_SENDER = None
+    MAIL_MAX_EMAILS = None
+    MAIL_SUPPRESS_SEND = False
+    MAIL_ASCII_ATTACHMENTS = False
 
     Debug = True
     SQLALCHEMY_DATABASE_URI = "postgresql://islatisk@localhost:5432/vidbot"
