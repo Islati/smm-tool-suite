@@ -3,6 +3,7 @@ import os.path
 import click
 from cli_commands import chop, image, upload_schedule
 from cli_commands.clips import view_clips
+from cli_commands.gui import gui
 from cli_commands.history import history
 from cli_commands.images import images
 from cli_commands.mail_send import mail_send
@@ -221,6 +222,14 @@ def mail(csv_file_location, subject, html_template, txt_template, sleep_min, sle
         sleep_min=sleep_min,
         sleep_max=sleep_max
     )
+
+@cli.command('gui')
+def run_gui():
+    """
+    Run the GUI
+    :return:
+    """
+    gui()
 
 
 if __name__ == '__main__':
