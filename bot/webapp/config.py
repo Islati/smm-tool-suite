@@ -31,6 +31,11 @@ class Config(object):
     # Debounce.io API Key
     EMAIL_VALIDATION_API_KEY = '631d2d6088fd2'
 
+    REDDIT_USERNAME = "IsBaee"
+    REDDIT_PASSWORD = "32buttcheeks!"
+    REDDIT_CLIENT_ID = "FAAbzSPTbCtFSTKKAN4rPQ"
+    REDDIT_CLIENT_SECRET = "Isdfp4hbf5hpoiTXJKwVaCJWT6W3hg"
+
 
 class DefaultConfig(Config):
     """

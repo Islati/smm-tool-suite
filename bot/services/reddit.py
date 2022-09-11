@@ -1,16 +1,23 @@
+from datetime import datetime
+
+import praw
 import requests
 import requests.auth
+from praw import Reddit
 
 
 class RedditClient(object):
-    def __init__(self, client_id, client_secret, username, password):
-        self.client_id = client_id
-        self.client_secret = client_secret
-        self.username = username
-        self.password = password
+    def __init__(self):
+        self.client_id = "FAAbzSPTbCtFSTKKAN4rPQ"
+        self.client_secret = "Isdfp4hbf5hpoiTXJKwVaCJWT6W3hg"
+        self.username = "IsBaee"
+        self.password = "32buttcheeks!"
 
         self.client_auth = requests.auth.HTTPBasicAuth(self.client_id, self.client_secret)
         self._oauth_token = None
+
+        self.reddit = Reddit(client_id=self.client_id, client_secret=self.client_secret, username=self.username,
+                             password=self.password, user_agent="VidBot/0.1 by Skreet.ca")
 
     def request_oauth_token(self):
         """
@@ -29,3 +36,9 @@ class RedditClient(object):
             self._oauth_token = self.request_oauth_token()
 
         return {"Authorization": f"bearer {self._oauth_token}", "User-Agent": "VidBot/0.1 by Skreet.ca"}
+
+    def get_posts(self, subreddit, limit=10):
+        return self.reddit.subreddit(subreddit).hot(limit=limit)
+
+
+client = RedditClient()

@@ -1,3 +1,7 @@
+import datetime
+
+import maya
+import pytz
 from flask import Flask, current_app, render_template
 from bot.webapp.extensions import db, migrations, mail
 
@@ -46,6 +50,10 @@ def create_app(configuration=None) -> Flask:
     @app.route('/')
     def index():
         return render_template('index.html')
+
+    @app.template_filter('slangtime')
+    def slangtime(s):
+        return maya.MayaDT.from_datetime(datetime.datetime.fromtimestamp(float(s),tz=pytz.utc)).slang_time()
 
     app.register_blueprint(feed_importer_blueprint)
 
