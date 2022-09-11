@@ -53,7 +53,7 @@ def execute_send(mail_message: Message):
 
 
 def mail_send(template, skip_duplicates=True,
-              check_recent=False, recent_days_check=7, sleep_min=1, sleep_max=5, csv_file_location=None):
+              check_recent=False, recent_days_check=7, sleep_min=1, sleep_max=5, csv_file_location=None,batch_size=50):
     """
     Sends and email to the user.
     :param to_email:
@@ -70,7 +70,6 @@ def mail_send(template, skip_duplicates=True,
         return
 
     user_details = []  # List of dictionaries containing user details
-    skipped_recent_users = 0
     # If we're given a csv file then import it.
     if csv_file_location is not None:
         user_details = import_csv_file_command(csv_file_location=csv_file_location)
@@ -100,6 +99,7 @@ def mail_send(template, skip_duplicates=True,
     text_template_content = BeautifulSoup(mail_message.html, "lxml").text.strip()
     jinja_template_render = Environment(loader=BaseLoader()).from_string(mail_message.html)
     html_email = jinja_template_render.render()
+    current_batch = 0
 
     for user in _users:
 
@@ -168,6 +168,14 @@ def mail_send(template, skip_duplicates=True,
         sleep_time = random.randint(sleep_min, sleep_max)
 
         _users.set_description(
-            f"Sent email to {user['full_name']} ({user['email']})... Sleeping for {sleep_time} seconds")
+            f"Sent email to {user['full_name']} ({user['email']})")
 
-        time.sleep(sleep_time)
+        current_batch += 1
+
+        if current_batch >= batch_size:
+            _users.set_description(f"Sleeping for {sleep_time} seconds after batch of {batch_size} emails.")
+            time.sleep(sleep_time)
+            current_batch = 0
+
+    print(f"Sent {len(user_details)} emails.")
+    print(f"Exiting...")

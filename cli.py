@@ -257,7 +257,8 @@ def test_mail(template):
 @click.option('--csv', '-c', 'csv_file_location', default=None, help="CSV file to use for the email.")
 @click.option('--sleep-from', '-f', 'sleep_min', default=1, help="Time to start sending emails.")
 @click.option('--sleep-to', '-t', 'sleep_max', default=3, help="Time to start sending emails.")
-def mail_command(csv_file_location, template, sleep_min, sleep_max):
+@click.option('--batch-size', '-b', 'batch_size', default=10, help="Number of emails to send at a time.")
+def mail_command(csv_file_location, template, sleep_min, sleep_max,batch_size):
     """
     Send an email to a list of recipients. If CSV file is not provided then they'll be loaded from the database.
     :param csv_file_location:
@@ -277,6 +278,7 @@ def mail_command(csv_file_location, template, sleep_min, sleep_max):
         sleep_min=sleep_min,
         sleep_max=sleep_max,
         template=template,
+        batch_size=batch_size
     )
 
 
