@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request
 from bot.services.reddit import client as reddit_client
+from bot.webapp.models import RedditRepost
 
 feed_importer = Blueprint('feed_importer', __name__, template_folder='templates', static_folder='static',
                           url_prefix='/feed-importer')
@@ -20,6 +21,7 @@ def schedule():
     body = _json['body']
     time = _json['time']
 
+
 @feed_importer.route('/load/', methods=['POST'])
 def load(subreddit, sort_method):
     try:
@@ -29,6 +31,8 @@ def load(subreddit, sort_method):
 
     posts = reddit_client.get_posts(subreddit, limit=10)
 
-    _posts = [post for post in posts if not post.is_self]  # link only filter.
+    # Skip non-image posts & images we've posted before.
+    _posts = [post for post in posts if
+              (post.is_self is False and RedditRepost.has_been_posted(post.id) is False)]  # link only filter.
 
     return render_template('feed_importer.html', subreddit=subreddit, posts=_posts)

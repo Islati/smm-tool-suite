@@ -46,6 +46,8 @@
 
             let formBodyField = $('#formPostBody');
             let formTimeField = $('#formPostTime');
+            let postUrlButton = $('#postUrlButton');
+            postUrlButton.attr('href', postUrl);
             formBodyField.val(postTitle);
             formTimeField.val("In 5 minutes");
         }
@@ -99,9 +101,9 @@
 
         {% if posts %}
             <div class="row mt-3">
-                <div class="col-sm-8">
+                <div class="col-sm-12">
                     <div class="alert alert-success" role="alert">
-                        <h6>Select Posts for Processing</h6>
+                        <h3>Select Posts for Processing</h3>
                     </div>
                 </div>
             </div>
@@ -152,46 +154,52 @@
                             <div class="row">
                                 <div class="text-center col-sm-12">
                                     <h2>Repost Configuration</h2>
+                                    <div class="row">
+                                        <a href="{{ posts[0].url }}"
+                                           target="_blank"
+                                           id="postUrlButton">View Post</a>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="row">
-                                <form>
-                                    <div class="row mb-2">
-                                        <div class="col-sm-12">
-                                            <div class="input-group flex-nowrap">
-                                                <span class="input-group-text" id="bodyTextLabel">Post Body</span>
-                                                <textarea class="form-control" aria-label="Post Body"
-                                                          aria-describedby="bodyTextLabel"
-                                                          id="formPostBody">{{ posts[0].title }}</textarea>
-                                            </div>
+                        <div class="row">
+                            <form>
+                                <div class="row mb-2">
+                                    <div class="col-sm-12">
+                                        <div class="input-group flex-nowrap">
+                                            <span class="input-group-text" id="bodyTextLabel">Post Body</span>
+                                            <textarea class="form-control" aria-label="Post Body"
+                                                      aria-describedby="bodyTextLabel"
+                                                      id="formPostBody">{{ posts[0].title }}</textarea>
                                         </div>
                                     </div>
-                                    <div class="row">
-                                        <div class="col-sm-8">
-                                            <div class="input-group flex-nowrap">
-                                                <span class="input-group-text" id="postTimeLabel">Post Time</span>
-                                                <input type="text" class="form-control" aria-label="In 5 Minutes"
-                                                       placeholder="In 5 Minutes"
-                                                       aria-describedby="postTimeLabel" value="In 28 hours"
-                                                       id="formPostTime">
-                                            </div>
-                                        </div>
-
-                                        <div class="col-sm-4">
-                                            <button type="button" class="btn btn-success" onclick="schedulePost()">
-                                                Post
-                                            </button>
+                                </div>
+                                <div class="row">
+                                    <div class="col-sm-10">
+                                        <div class="input-group flex-nowrap">
+                                            <span class="input-group-text" id="postTimeLabel">Post Time</span>
+                                            <input type="text" class="form-control" aria-label="In 5 Minutes"
+                                                   placeholder="In 5 Minutes"
+                                                   aria-describedby="postTimeLabel" value="In 28 hours"
+                                                   id="formPostTime">
                                         </div>
                                     </div>
 
+                                    <div class="col-sm-2">
+                                        <button type="button" class="btn btn-success" onclick="schedulePost()">
+                                            Post
+                                        </button>
+                                    </div>
+                                </div>
 
-                                </form>
-                            </div>
+
+                            </form>
                         </div>
                     </div>
-
                 </div>
+
+            </div>
             </div>
 
         {% endif %}

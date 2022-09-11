@@ -1,4 +1,5 @@
 import datetime
+import uuid
 
 import maya
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
@@ -12,6 +13,29 @@ Secondary table for the social media posts to show many-to-many relationship wit
 post_hashtags_table = db.Table('post_hashtags',
                                db.Column('post_id', db.Integer, db.ForeignKey('social_media_posts.id')),
                                db.Column('hashtag_id', db.Integer, db.ForeignKey('hashtags.id')))
+
+
+class RedditRepost(SqlModel, SurrogatePK, TimeMixin):
+    """
+    Model represents a repost (scraped from reddit)
+    """
+
+    __tablename__ = "reddit_reposts"
+
+    post_id = db.Column(db.String(255), nullable=False, unique=True)
+    title = db.Column(db.String(255), nullable=False)
+    url = db.Column(db.String(255), nullable=False)
+
+    def __init__(self, post_id, title, url):
+        super().__init__(post_id=post_id, title=title, url=url)
+
+    @staticmethod
+    def get_post(post_id):
+        return RedditRepost.query.filter_by(post_id=post_id).first()
+
+    @staticmethod
+    def has_been_posted(post_id):
+        return RedditRepost.get_post(post_id) is not None
 
 
 class SentMail(SurrogatePK, TimeMixin, SqlModel):
@@ -198,13 +222,14 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
 
     hashtags = db.relationship("Hashtag", secondary=post_hashtags_table, backref="posts")
 
-    def __init__(self, api_id, platform, post_time, media_upload, hashtags, post_url=None):
+    def __init__(self, api_id, platform, post_time, media_upload, hashtags, post_url=None, unique_identifier=None):
         super().__init__(api_id=api_id, platform=platform,
                          post_time=maya.MayaDT.from_iso8601(post_time).datetime(),
                          post_url=post_url,
                          media_upload=media_upload,
                          media_upload_id=media_upload.id,
-                         hashtags=[Hashtag.get_or_create(name=hashtag) for hashtag in hashtags])
+                         hashtags=[Hashtag.get_or_create(name=hashtag) for hashtag in hashtags],
+                         unique_identifier=str(uuid.uuid1()))
 
     @hybrid_property
     def is_video(self):
