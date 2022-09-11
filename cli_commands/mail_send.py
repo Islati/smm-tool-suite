@@ -5,12 +5,13 @@ import traceback
 
 import jellyfish
 from bs4 import BeautifulSoup
-from flask import render_template
+from flask import render_template, current_app
 from flask_mail import Message
 from jinja2 import Environment, BaseLoader
 from sqlalchemy import desc
 from tqdm import tqdm
 
+from bot import utils
 from bot.services.email_validator import EmailValidator
 from bot.webapp import mail
 from bot.webapp.models import MailMessage, Contact, SentMail
@@ -46,6 +47,11 @@ def check_message_history(cli_bar, user, message, current_message, similarity_ma
     return False
 
 
+def execute_send(mail_message: Message):
+    with current_app._get_current_object().app_context() as app_context:
+        mail.send(mail_message)
+
+
 def mail_send(template, skip_duplicates=True,
               check_recent=False, recent_days_check=7, sleep_min=1, sleep_max=5, csv_file_location=None):
     """
@@ -70,62 +76,58 @@ def mail_send(template, skip_duplicates=True,
         user_details = import_csv_file_command(csv_file_location=csv_file_location)
     else:
         contacts = Contact.query.order_by(desc(Contact.id)).all()
-        _contact_iteration = tqdm(contacts, desc=f"Loading ({len(contacts)}) contacts from database...")
+        print(f"Loading database of {len(contacts)} contacts...")
         for contact in contacts:
             user_details.append({
                 "full_name": contact.full_name,
                 "email": contact.email,
-                "username": contact.username,
                 "contact": contact,
                 "bio": contact.bio,
                 "instagram_url": contact.instagram_url,
                 "business": contact.business,
             })
-            _contact_iteration.set_description(f"+ {contact.email}")
 
     _users = tqdm(user_details, desc="Sending Emails", unit="emails")
+
+    print(f"Caching email body & html details for {template}...")
 
     text_template_content = BeautifulSoup(mail_message.html, "lxml").text
     jinja_template_render = Environment(loader=BaseLoader()).from_string(mail_message.html)
     html_email = jinja_template_render.render()
+
     for user in _users:
+
+        # Check the users email is valid
         if not user['contact'].verified_email:
             contact = user['contact']
 
-            # This contact is invalid, skip it. Not verified, but checked.
-            if contact.updated_at > contact.created_at:
-                continue
-
             # Verify the email address.
             # Non-valid emails can be detected by checking verified_email=False and updated_at > created_at
-            _users.set_description(f"Verifying email: {contact.email}")
+            print(f"Verifying email: {contact.email}")
             valid = EmailValidator.validate(contact.email)
 
             if not valid:
                 contact.verified_email = False
                 contact.save(commit=True)
-                _users.set_description(f"Skipping {user['email']} (invalid email)")
+                print(f"Skipping {user['email']} (invalid email)")
                 continue
 
             contact.verified_email = True
             contact.save(commit=True)
 
-        _users.set_description(f"Checking message history for {user['email']}..")
+        print(f"Checking message history for {user['email']}..")
+        print("Updated but not verified")
 
-        # Check & validate user again before sending.
-        # if not verify_email(user['email']):
-        #     user['contact'].valid = False
-        #     user['contact'].save(commit=True)
-        #     _users.set_description(f"Skipping {user['email']} (invalid email)")
-        #     continue
+        sent_mail = SentMail.query.order_by(desc(SentMail.id)).filter_by(contact_id=user["contact"].id).first()
 
-        sent_mail = SentMail.query.order_by(desc(MailMessage.id)).filter_by(contact_id=user["contact"].id).first()
-
-        if sent_mail is not None and jellyfish.jaro_winkler_similarity(html_email, sent_mail.mail.html) >= 0.75:
-            _users.set_description(f"Skipping {user['email']} as we've sent them a similar message recently.")
+        if sent_mail is not None:
+            if jellyfish.jaro_winkler_similarity(html_email,
+                                                 sent_mail.mail.html) >= 0.75:
+                print(f"Skipping {user['email']} (duplicate message)")
+                continue
             continue
 
-        _users.set_description_str(f"Sending email to {user['full_name']} ({user['email']}")
+        print(f"Sending email to {user['full_name']} ({user['email']}")
 
         msg = Message(
             subject=mail_message.subject,
@@ -141,20 +143,20 @@ def mail_send(template, skip_duplicates=True,
             sent_mail_record = SentMail(contact=user["contact"], mail=mail_message)
             sent_mail_record.save(commit=True)
             sent_mail_message = True
-            _users.set_description(f"+ Email to {user['email']}")
+            print(f"+ Email to {user['email']}")
         except Exception as e:
             trace = traceback.format_exc()
             print(trace)
 
         mail_message.save(commit=True)
         if not sent_mail_message:
-            _users.set_description(f"Failed to send email to {user['full_name']} ({user['email']})")
+            print(f"Failed to send email to {user['full_name']} ({user['email']})")
             time.sleep(3)
             continue
 
         sleep_time = random.randint(sleep_min, sleep_max)
 
-        _users.set_description(
+        print(
             f"Sent email to {user['full_name']} ({user['email']})... Sleeping for {sleep_time} seconds")
 
         time.sleep(sleep_time)

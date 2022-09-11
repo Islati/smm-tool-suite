@@ -1,6 +1,13 @@
 # function to print all the hashtags in a text
 import os
 import subprocess as sp
+from itertools import islice
+
+
+def chunk(arr_range, arr_size):
+    arr_range = iter(arr_range)
+    return iter(lambda: tuple(islice(arr_range, arr_size)), ())
+
 
 def extract_hashtags(text):
     if text is None:

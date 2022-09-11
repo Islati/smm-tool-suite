@@ -270,7 +270,7 @@ def mail_command(csv_file_location, template, sleep_min, sleep_max):
         return
 
     mail_send(
-        csv_file_location=os.path.expanduser(csv_file_location),
+        csv_file_location=os.path.expanduser(csv_file_location) if csv_file_location is not None else None,
         skip_duplicates=False,
         check_recent=False,
         recent_days_check=30,
@@ -297,8 +297,7 @@ def import_csv_contacts(file, folder=None):
         scan_and_parse_csv_files(folder_location=folder)
 
     else:
-        import_csv_file_command(csv_file_location=os.path.expanduser(file),silent=False)
-
+        import_csv_file_command(csv_file_location=os.path.expanduser(file), silent=False)
 
 @cli.command('gui')
 def run_gui():
