@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Tools Overview{% endblock %}
+{% block body %}
+
+    <div class="container-fluid">
+
+        <div class="row">
+            <div class="col-sm-12">
+                <h2>Feed Importer</h2>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-sm-6">
+                <form>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="feedUrl" placeholder="https://www.reddit.com/r/rapmemes"
+                               aria-describedby="feedScrapeButton" aria-label="Upload">
+                        <button class="btn btn-outline-secondary" type="button" id="feedScrapeButton">Load</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+    </div>
+
+{% endblock %}

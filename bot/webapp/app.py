@@ -1,4 +1,4 @@
 from bot.webapp import create_app
-from bot.webapp.config import Config
+from bot.webapp.config import Config, DefaultConfig
 
-app = create_app(Config())
+app = create_app(DefaultConfig())

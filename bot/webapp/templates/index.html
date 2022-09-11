@@ -1,8 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Tools Overview{% endblock %}
 {% block body %}
-
-    <div class="container">
+    <div class="container-fluid">
         <div class="row">
             <div class="col-sm-12">
                 <h1>Tools Overview</h1>
@@ -11,50 +10,42 @@
         </div>
 
         <div class="row">
-
-        </div>
-
-
-        <div class="row">
             <div class="col-sm-12">
-                <div class="accordian" id="toolsTodo">
-                    <h1 class="accordian-header" id="toolsAccordianHeader">
-                        <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
-                            Tools to Build
-                        </button>
-                    </h1>
-                    <div id="collapseOne" class="accordian-collapse collapse show"
-                         aria-labelledby="toolsAccordianHeader" data-bs-parent="#toolsTodo">
-                        <div class="accordian-body">
-                            <ul>
-                                <li>Feed importer
-                                    <ul>
-                                        <li>Meme Reposter
-                                            <ul>
-                                                <li>Selected memes can get scheduled x hours apart & reposted!</li>
-                                                <li>Reddit Feed Viewer & Selector</li>
-                                            </ul>
-                                        </li>
-                                        <li>
-                                            Video Chopper
-                                            <ul>
-                                                <li>Using the chop tool we can have videos automatically created & held
-                                                    for
-                                                    review
-                                                </li>
-                                            </ul>
-                                        </li>
-                                    </ul>
-                                </li>
-                                <li>Stats overview</li>
+                <div class="accordion" id="accordionExample">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="headingOne">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                Meme Reposter
+                            </button>
+                        </h2>
+                        <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne"
+                             data-bs-parent="#accordionExample">
+                            <div class="accordion-body">
+                                <strong>Required</strong>
 
-                            </ul>
-
+                                <p class="mt-1">Visual Feed Importer</p>
+                                <span class="fs-6 fw-light fw-italic">(Specification)</span>
+                                <ul>
+                                    <li>Input link for subreddit <i>(and others in future)</i>.</li>
+                                    <li>Items are loaded into a selectable grid.</li>
+                                    <li>After items selected, then move to customizing post scheduling and
+                                        details
+                                        <ul>
+                                            <li>Allow to space posts from feed X hours / days</li>
+                                            <li>Allow default behaviour of set time</li>
+                                        </ul>
+                                    </li>
+                                    <li>Process items one by one, showing details on the GUI</li>
+                                </ul>
+                                <span class="fs-6 fw-light fw-italic">(Other features)</span>
+                                <ul>
+                                    <li>Include upvotes / scoring of meme.</li>
+                                    <li>Preview must be clear and intuitive.</li>
+                                </ul>
+                            </div>
                         </div>
-
                     </div>
-
                 </div>
 
             </div>
