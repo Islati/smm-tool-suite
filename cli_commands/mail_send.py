@@ -97,7 +97,7 @@ def mail_send(template, skip_duplicates=True,
 
     print(f"Caching email body & html details for {template}...")
 
-    text_template_content = BeautifulSoup(mail_message.html, "lxml").text
+    text_template_content = BeautifulSoup(mail_message.html, "lxml").text.strip()
     jinja_template_render = Environment(loader=BaseLoader()).from_string(mail_message.html)
     html_email = jinja_template_render.render()
 
