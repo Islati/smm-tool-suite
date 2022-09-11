@@ -11,7 +11,7 @@ from cli_commands.clips import view_clips
 from cli_commands.gui import gui
 from cli_commands.history import history
 from cli_commands.images import images
-from cli_commands.import_csv_file import import_csv_file_command, scan_folder_for_csv_files
+from cli_commands.import_csv_file import import_csv_file_command, scan_and_parse_csv_files
 from cli_commands.mail_send import mail_send
 from cli_commands.post_info import post_info
 from cli_commands.redo_clip import redo_clip
@@ -294,9 +294,10 @@ def import_csv_contacts(file, folder=None):
         return
     if folder is not None:
         print(f"Scanning {folder} for CSV files...")
-        scan_folder_for_csv_files(folder_location=folder)
+        scan_and_parse_csv_files(folder_location=folder)
+
     else:
-        import_csv_file_command(csv_file_location=os.path.expanduser(file))
+        import_csv_file_command(csv_file_location=os.path.expanduser(file),silent=False)
 
 
 @cli.command('gui')

@@ -11,6 +11,7 @@ from jinja2 import Environment, BaseLoader
 from sqlalchemy import desc
 from tqdm import tqdm
 
+from bot.services.email_validator import EmailValidator
 from bot.webapp import mail
 from bot.webapp.models import MailMessage, Contact, SentMail
 
@@ -67,10 +68,9 @@ def mail_send(template, skip_duplicates=True,
     # If we're given a csv file then import it.
     if csv_file_location is not None:
         user_details = import_csv_file_command(csv_file_location=csv_file_location)
-
     else:
-        contacts = Contact.query.order_by(desc(Contact.id)).filter_by(valid=True).limit(500).all()
-        _contact_iteration = tqdm(contacts, desc="Loading contacts (Max 500)")
+        contacts = Contact.query.order_by(desc(Contact.id)).all()
+        _contact_iteration = tqdm(contacts, desc=f"Loading ({len(contacts)}) contacts from database...")
         for contact in contacts:
             user_details.append({
                 "full_name": contact.full_name,
@@ -81,7 +81,7 @@ def mail_send(template, skip_duplicates=True,
                 "instagram_url": contact.instagram_url,
                 "business": contact.business,
             })
-            _contact_iteration.set_description(f"Loading contacts (Max 500) - {len(user_details)} loaded")
+            _contact_iteration.set_description(f"+ {contact.email}")
 
     _users = tqdm(user_details, desc="Sending Emails", unit="emails")
 
@@ -89,11 +89,28 @@ def mail_send(template, skip_duplicates=True,
     jinja_template_render = Environment(loader=BaseLoader()).from_string(mail_message.html)
     html_email = jinja_template_render.render()
     for user in _users:
-        if not user['contact'].valid:
-            _users.set_description(f"Skipping {user['email']} (invalid email)")
-            continue
+        if not user['contact'].verified_email:
+            contact = user['contact']
 
-        _users.set_description(f"Checking if we can email {user['email']}")
+            # This contact is invalid, skip it. Not verified, but checked.
+            if contact.updated_at > contact.created_at:
+                continue
+
+            # Verify the email address.
+            # Non-valid emails can be detected by checking verified_email=False and updated_at > created_at
+            _users.set_description(f"Verifying email: {contact.email}")
+            valid = EmailValidator.validate(contact.email)
+
+            if not valid:
+                contact.verified_email = False
+                contact.save(commit=True)
+                _users.set_description(f"Skipping {user['email']} (invalid email)")
+                continue
+
+            contact.verified_email = True
+            contact.save(commit=True)
+
+        _users.set_description(f"Checking message history for {user['email']}..")
 
         # Check & validate user again before sending.
         # if not verify_email(user['email']):
@@ -107,8 +124,6 @@ def mail_send(template, skip_duplicates=True,
         if sent_mail is not None and jellyfish.jaro_winkler_similarity(html_email, sent_mail.mail.html) >= 0.75:
             _users.set_description(f"Skipping {user['email']} as we've sent them a similar message recently.")
             continue
-        else:
-            _users.set_description(f"No past email to {user['email']}")
 
         _users.set_description_str(f"Sending email to {user['full_name']} ({user['email']}")
 
@@ -126,7 +141,7 @@ def mail_send(template, skip_duplicates=True,
             sent_mail_record = SentMail(contact=user["contact"], mail=mail_message)
             sent_mail_record.save(commit=True)
             sent_mail_message = True
-            _users.set_description(f"+ Sent email to {user['email']} successfully.")
+            _users.set_description(f"+ Email to {user['email']}")
         except Exception as e:
             trace = traceback.format_exc()
             print(trace)

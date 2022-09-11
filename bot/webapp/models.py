@@ -43,19 +43,19 @@ class Contact(SurrogatePK, TimeMixin, SqlModel):
 
     full_name = db.Column(db.Text, nullable=False)
     instagram_url = db.Column(db.String(255), nullable=False)
-    email = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(255), nullable=False, unique=True)
     bio = db.Column(db.Text, nullable=True)
     business = db.Column(db.Boolean, default=False, nullable=False)
-    valid = db.Column(db.Boolean, default=False, nullable=False)
+    verified_email = db.Column(db.Boolean, default=False, nullable=True)
 
-    def __init__(self, full_name, instagram_url, email, bio, business, valid):
+    def __init__(self, full_name, instagram_url, email, bio, business, verified_email):
         super().__init__(
             full_name=full_name,
             instagram_url=instagram_url,
             email=email,
             business=business,
             bio=bio,
-            valid=valid
+            verified_email=verified_email
         )
 
 

@@ -16,7 +16,7 @@ class EmailValidator:
     """
 
     @staticmethod
-    def validate(email: str) -> bool:
+    def validate(email: str,timeout=10) -> bool:
         """
         Validates email address.
         :return:
@@ -26,5 +26,8 @@ class EmailValidator:
             if domain in email:
                 return True
 
-        response = requests.get(f"https://api.debounce.io/v1/?api={Config.EMAIL_VALIDATION_API_KEY}&email={email}")
+        try:
+            response = requests.get(f"https://api.debounce.io/v1/?api={Config.EMAIL_VALIDATION_API_KEY}&email={email}",timeout=timeout)
+        except:
+            return False
         return int(response.json()['success']) == 1
