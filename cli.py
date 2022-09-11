@@ -3,6 +3,7 @@ import os.path
 import click
 from flask_mail import Message
 
+from bot.webapp.models import MailMessage
 from cli_commands import chop, image, upload_schedule
 from cli_commands.email_templates import add_email_template_command, view_email_templates_command, \
     delete_email_template_command
@@ -10,6 +11,7 @@ from cli_commands.clips import view_clips
 from cli_commands.gui import gui
 from cli_commands.history import history
 from cli_commands.images import images
+from cli_commands.import_csv_file import import_csv_file_command, scan_folder_for_csv_files
 from cli_commands.mail_send import mail_send
 from cli_commands.post_info import post_info
 from cli_commands.redo_clip import redo_clip
@@ -231,40 +233,70 @@ def view_email_templates():
 
 
 @cli.command('test_mail')
-def test_mail():
+@click.option('--template', '-t', "template", default=None, help="Template to use for the email.")
+def test_mail(template):
     """
     Test mail sending
     :return:
     """
-    msg = Message(subject="Test", recipients=["islati.sk@gmail.com"], body="Test", sender="islati@skreet.ca")
+    template_msg = MailMessage.query.filter_by(name=template).first()
+    if template_msg is None:
+        click.echo(
+            f"Template '{template}' not found.\nPlease use the 'add-email-template' command to add it, or use one of the available templates found via 'view-email-templates' command")
+        return
+
+    msg = Message(subject=template_msg.subject, recipients=["islati.sk@gmail.com"], body=template_msg.body,
+                  html=template_msg.html,
+                  sender="islati@skreet.ca")
     mail.send(msg)
     click.echo(f"Test mail sent.")
 
 
 @cli.command('mail')
-@click.option('--subject', '-s', "subject", default=None, help="Subject of the email.")
-@click.option('--html-template', 'html_template', default=None, help="Template to use for the email.")
-@click.option('--txt-template', 'txt_template', default=None, help="Template to use for the email.")
+@click.option('--template', 'template', default=None, help="Template to use for the email.")
 @click.option('--csv', '-c', 'csv_file_location', default=None, help="CSV file to use for the email.")
 @click.option('--sleep-from', '-f', 'sleep_min', default=1, help="Time to start sending emails.")
 @click.option('--sleep-to', '-t', 'sleep_max', default=3, help="Time to start sending emails.")
-def mail_command(csv_file_location, subject, html_template, txt_template, sleep_min, sleep_max):
+def mail_command(csv_file_location, template, sleep_min, sleep_max):
     """
-    Send an email to a list of recipients loaded from csv files.
+    Send an email to a list of recipients. If CSV file is not provided then they'll be loaded from the database.
     :param csv_file_location:
     :return:
     """
+
+    if template is None:
+        click.echo(
+            "No template specified!\nCreate one using the 'add-email-template' command.\nView them using the 'view-email-templates' command.")
+        return
+
     mail_send(
         csv_file_location=os.path.expanduser(csv_file_location),
         skip_duplicates=False,
         check_recent=False,
         recent_days_check=30,
-        html_email_template=html_template,
-        txt_email_template=txt_template,
-        subject=subject,
         sleep_min=sleep_min,
-        sleep_max=sleep_max
+        sleep_max=sleep_max,
+        template=template,
     )
+
+
+@cli.command('import-csv-contacts')
+@click.option('--file', '-f', 'file', default=None, help="CSV file to use for the email.")
+@click.option('--folder', '-d', 'folder', default=None, help="Folder to import contacts from.")
+def import_csv_contacts(file, folder=None):
+    """
+    Import contacts from a CSV file or folder of CSV files, creating contacts in the database.
+    :param file:
+    :return:
+    """
+    if file is None and folder is None:
+        click.echo("No file or folder specified.\n Please enter a file location or folder location to continue!")
+        return
+    if folder is not None:
+        print(f"Scanning {folder} for CSV files...")
+        scan_folder_for_csv_files(folder_location=folder)
+    else:
+        import_csv_file_command(csv_file_location=os.path.expanduser(file))
 
 
 @cli.command('gui')

@@ -1,6 +1,6 @@
 import click
 
-from bot.tiktok import TikTokDownloader
+from bot.services.tiktok import TikTokDownloader
 
 
 def tiktok_download(url, output_filename):

@@ -15,7 +15,7 @@ class Config(object):
     MAIL_PORT = 465
     MAIL_USE_TLS = False
     MAIL_USE_SSL = True
-    MAIL_DEBUG = True
+    MAIL_DEBUG = False
     MAIL_USERNAME = "apikey"
     MAIL_PASSWORD = "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"
     MAIL_DEFAULT_SENDER = None
@@ -23,8 +23,13 @@ class Config(object):
     MAIL_SUPPRESS_SEND = False
     MAIL_ASCII_ATTACHMENTS = False
 
+    EMAIL_VALIDATION_TIMEOUT = 3
+
     MAILTRAP_API_KEY = "W8ZMC7Q-PFBMXSB-JPDK8HC-NQPQCXH"
     SENDGRID_API_KEY = "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"
+
+    # Debounce.io API Key
+    EMAIL_VALIDATION_API_KEY = '631d2d6088fd2'
 
 
 class DefaultConfig(Config):

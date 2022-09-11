@@ -15,6 +15,8 @@ from bot.webapp import mail
 from bot.webapp.models import MailMessage, Contact, SentMail
 from verify_email import verify_email
 
+from cli_commands.import_csv_file import import_csv_file_command
+
 
 def parse_tags(input_text, user_data):
     """
@@ -44,8 +46,8 @@ def check_message_history(cli_bar, user, message, current_message, similarity_ma
     return False
 
 
-def mail_send(csv_file_location, subject, html_email_template, txt_email_template, skip_duplicates=True,
-              check_recent=False, recent_days_check=7, sleep_min=1, sleep_max=5, template_name=None):
+def mail_send(template, skip_duplicates=True,
+              check_recent=False, recent_days_check=7, sleep_min=1, sleep_max=5, csv_file_location=None):
     """
     Sends and email to the user.
     :param to_email:
@@ -55,47 +57,51 @@ def mail_send(csv_file_location, subject, html_email_template, txt_email_templat
     :return:
     """
 
+    mail_message = MailMessage.query.filter_by(name=template).first()
+    if mail_message is None:
+        print(
+            f"Template with name {template} not found.\nView available templates by running 'python cli.py view-email-templates'")
+        return
+
     user_details = []  # List of dictionaries containing user details
-    with open(csv_file_location, 'r') as f:
-        csv_reader = csv.reader(f, delimiter=',')
-        lines = 0
-        for line in csv_reader:
-            if lines == 0:
-                lines += 1
-                continue
-            user_info = dict(
-                username=line[1],
-                full_name=line[2],
-                email=line[6],
-                bio=line[14],
-                instagram_url=line[16],
-                business="y" in line[12].lower()
-            )
 
-            print(f"Creating user contact for {user_info['email']}")
+    # If we're given a csv file then import it.
+    if csv_file_location is not None:
+        user_details = import_csv_file_command(csv_file_location=csv_file_location)
 
-            contact = Contact(full_name=user_info["full_name"], instagram_url=user_info["instagram_url"],
-                              email=user_info["email"], bio=user_info["bio"], business=user_info['business'],
-                              valid=verify_email(user_info["email"]))
-            contact.save(commit=True)
-
-            user_info['contact'] = contact
-
-            user_details.append(user_info)
-            lines += 1
-
-    print(f"Parsed file to find {len(user_details)} users.")
+    else:
+        contacts = Contact.query.order_by(desc(Contact.id)).filter_by(valid=True).limit(500).all()
+        _contact_iteration = tqdm(contacts, desc="Loading contacts (Max 500)")
+        for contact in contacts:
+            user_details.append({
+                "full_name": contact.full_name,
+                "email": contact.email,
+                "username": contact.username,
+                "contact": contact,
+                "bio": contact.bio,
+                "instagram_url": contact.instagram_url,
+                "business": contact.business,
+            })
+            _contact_iteration.set_description(f"Loading contacts (Max 500) - {len(user_details)} loaded")
 
     _users = tqdm(user_details, desc="Sending Emails", unit="emails")
-    html_email_template_contents = None
-    with open(html_email_template, "r") as f:
-        html_email_template_contents = f.read()
 
-    text_template_content = BeautifulSoup(html_email_template_contents, "lxml").text
-    jinja_template_render = Environment(loader=BaseLoader()).from_string(html_email_template_contents)
+    text_template_content = BeautifulSoup(mail_message.html, "lxml").text
+    jinja_template_render = Environment(loader=BaseLoader()).from_string(mail_message.html)
     html_email = jinja_template_render.render()
     for user in _users:
+        if not user['contact'].valid:
+            _users.set_description(f"Skipping {user['email']} (invalid email)")
+            continue
+
         _users.set_description(f"Checking if we can email {user['email']}")
+
+        # Check & validate user again before sending.
+        # if not verify_email(user['email']):
+        #     user['contact'].valid = False
+        #     user['contact'].save(commit=True)
+        #     _users.set_description(f"Skipping {user['email']} (invalid email)")
+        #     continue
 
         sent_mail = SentMail.query.order_by(desc(MailMessage.id)).filter_by(contact_id=user["contact"].id).first()
 
@@ -106,21 +112,9 @@ def mail_send(csv_file_location, subject, html_email_template, txt_email_templat
             _users.set_description(f"No past email to {user['email']}")
 
         _users.set_description_str(f"Sending email to {user['full_name']} ({user['email']}")
-        mail_message = MailMessage.query.filter_by(name=template_name).first()
-
-        # Update the html on the cached mail message if there's new html being handed to this template.
-
-        if mail_message is None:
-            mail_message = MailMessage(name=template_name, subject=subject, body=text_template_content,
-                                       html=html_email)
-            mail_message.save(commit=True)
-
-        elif mail_message.html != html_email:
-            mail_message.html = html_email
-            mail_message.save(commit=True)
 
         msg = Message(
-            subject=subject,
+            subject=mail_message.subject,
             body=text_template_content,  # todo render & replace with jinja2 template
             html=mail_message.html,
             recipients=[user['email']],
@@ -133,13 +127,13 @@ def mail_send(csv_file_location, subject, html_email_template, txt_email_templat
             sent_mail_record = SentMail(contact=user["contact"], mail=mail_message)
             sent_mail_record.save(commit=True)
             sent_mail_message = True
-            _users.set_description("Sent email successfully.")
+            _users.set_description(f"+ Sent email to {user['email']} successfully.")
         except Exception as e:
             trace = traceback.format_exc()
             print(trace)
 
         mail_message.save(commit=True)
-        if not mail_message.sent:
+        if not sent_mail_message:
             _users.set_description(f"Failed to send email to {user['full_name']} ({user['email']})")
             time.sleep(3)
             continue

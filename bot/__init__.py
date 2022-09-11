@@ -16,7 +16,7 @@ from moviepy.video.io.VideoFileClip import VideoFileClip
 from pytube import YouTube
 from pytube.cli import on_progress
 
-from bot.tiktok import TikTokDownloader
+from bot.services.tiktok import TikTokDownloader
 from bot.utils import ffmpeg_convert_to_mp4, ffmpeg_extract_subclip, extract_hashtags
 from bot.webapp.config import DefaultConfig
 from bot.webapp.models import ImageDb, VideoClip as BotClip, MediaUpload, SocialMediaPost, VideoClip
