@@ -92,7 +92,6 @@ def mail_send(template, skip_duplicates=True,
             })
 
         print(f"Skipped {skipped_count} contacts that have been emailed recently.")
-        input("Press enter to continue...")
 
     _users = tqdm(user_details, desc="Sending Emails", unit="emails")
 
