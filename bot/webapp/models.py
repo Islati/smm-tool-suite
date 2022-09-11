@@ -222,14 +222,13 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
 
     hashtags = db.relationship("Hashtag", secondary=post_hashtags_table, backref="posts")
 
-    def __init__(self, api_id, platform, post_time, media_upload, hashtags, post_url=None, unique_identifier=None):
+    def __init__(self, api_id, platform, post_time, media_upload, hashtags, post_url=None):
         super().__init__(api_id=api_id, platform=platform,
                          post_time=maya.MayaDT.from_iso8601(post_time).datetime(),
                          post_url=post_url,
                          media_upload=media_upload,
                          media_upload_id=media_upload.id,
-                         hashtags=[Hashtag.get_or_create(name=hashtag) for hashtag in hashtags],
-                         unique_identifier=str(uuid.uuid1()))
+                         hashtags=[Hashtag.get_or_create(name=hashtag) for hashtag in hashtags])
 
     @hybrid_property
     def is_video(self):

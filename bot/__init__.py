@@ -385,7 +385,7 @@ class VidBot(object):
 
         upload_request_response = req.json()
 
-        print(f"Upload request response: {upload_request_response}")
+        print(f"File URL: {upload_request_response['accessUrl']}")
 
         if image is not None:
             media_upload = MediaUpload(access_url=upload_request_response['accessUrl'],
@@ -610,7 +610,7 @@ class VidBot(object):
                     post = SocialMediaPost(api_id=api_id, platform=platform, media_upload=media_upload,
                                            post_time=date_time.datetime(
                                                to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
-                                           hashtags=compiled_keyword_list)
+                                           hashtags=compiled_keyword_list,)
                     post.save(commit=True)
                     print("+ Scheduled on " + platform + " for " + self.scheduled_date)
 
