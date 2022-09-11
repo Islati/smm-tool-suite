@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from flask import render_template, current_app
 from flask_mail import Message
 from jinja2 import Environment, BaseLoader
-from sqlalchemy import desc
+from sqlalchemy import desc, not_, or_, and_
 from tqdm import tqdm
 
 from bot import utils
@@ -70,14 +70,18 @@ def mail_send(template, skip_duplicates=True,
         return
 
     user_details = []  # List of dictionaries containing user details
-
+    skipped_recent_users = 0
     # If we're given a csv file then import it.
     if csv_file_location is not None:
         user_details = import_csv_file_command(csv_file_location=csv_file_location)
     else:
         contacts = Contact.query.order_by(desc(Contact.id)).all()
         print(f"Loading database of {len(contacts)} contacts...")
+        skipped_count = 0
         for contact in contacts:
+            if contact.has_emailed_recently(days=recent_days_check):
+                skipped_count += 1
+                continue
             user_details.append({
                 "full_name": contact.full_name,
                 "email": contact.email,
@@ -86,6 +90,9 @@ def mail_send(template, skip_duplicates=True,
                 "instagram_url": contact.instagram_url,
                 "business": contact.business,
             })
+
+        print(f"Skipped {skipped_count} contacts that have been emailed recently.")
+        input("Press enter to continue...")
 
     _users = tqdm(user_details, desc="Sending Emails", unit="emails")
 
@@ -101,18 +108,24 @@ def mail_send(template, skip_duplicates=True,
         if not user['contact'].verified_email:
             contact = user['contact']
 
+            if contact.verification_requested:
+                _users.set_description(f"Skipping {user['email']} as email verification has been requested previously.")
+                continue
+
             # Verify the email address.
             # Non-valid emails can be detected by checking verified_email=False and updated_at > created_at
-            print(f"Verifying email: {contact.email}")
+            _users.set_description(f"Verifying email: {contact.email}")
             valid = EmailValidator.validate(contact.email)
 
             if not valid:
                 contact.verified_email = False
+                contact.verification_requested = True
                 contact.save(commit=True)
-                print(f"Skipping {user['email']} (invalid email)")
+                _users.set_description(f"Skipping {user['email']} (invalid email)")
                 continue
 
             contact.verified_email = True
+            contact.verification_requested = True
             contact.save(commit=True)
 
         _users.set_description(f"Checking message history for {user['email']}..")

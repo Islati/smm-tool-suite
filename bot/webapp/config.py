@@ -17,7 +17,7 @@ class Config(object):
     MAIL_USE_SSL = True
     MAIL_DEBUG = False
     MAIL_USERNAME = "apikey"
-    MAIL_PASSWORD = "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"
+    MAIL_PASSWORD = "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"
     MAIL_DEFAULT_SENDER = None
     MAIL_MAX_EMAILS = None
     MAIL_SUPPRESS_SEND = False

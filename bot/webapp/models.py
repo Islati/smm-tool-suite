@@ -1,7 +1,7 @@
 import datetime
 
 import maya
-from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.orm import backref
 
 from bot.webapp.database import db, SqlModel, SurrogatePK, TimeMixin
@@ -46,17 +46,35 @@ class Contact(SurrogatePK, TimeMixin, SqlModel):
     email = db.Column(db.String(255), nullable=False, unique=True)
     bio = db.Column(db.Text, nullable=True)
     business = db.Column(db.Boolean, default=False, nullable=False)
-    verified_email = db.Column(db.Boolean, default=False, nullable=True)
+    verified_email = db.Column(db.Boolean, default=False, nullable=False)
+    verification_requested = db.Column(db.Boolean, default=False, nullable=True)
 
-    def __init__(self, full_name, instagram_url, email, bio, business, verified_email):
+    def __init__(self, full_name, instagram_url, email, bio, business, verified_email, verification_requested=False):
         super().__init__(
             full_name=full_name,
             instagram_url=instagram_url,
             email=email,
             business=business,
             bio=bio,
-            verified_email=verified_email
+            verified_email=verified_email,
+            verification_requested=verification_requested
         )
+
+    @hybrid_property
+    def has_emailed_in_past_week(self):
+        """
+        Check if the user has been emailed recently.
+        """
+        return self.has_emailed_recently(days=7)
+
+    @hybrid_property
+    def has_emailed_in_past_month(self):
+        return self.has_emailed_recently(days=30)
+
+    @hybrid_method
+    def has_emailed_recently(self, days):
+        return SentMail.query.filter(SentMail.created_at >= maya.now().subtract(days=days).datetime(),
+                                     SentMail.contact_id == self.id).count() > 0
 
 
 class MailMessage(SurrogatePK, TimeMixin, SqlModel):

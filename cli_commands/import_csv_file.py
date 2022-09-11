@@ -69,7 +69,7 @@ def import_csv_file_command(csv_file_location, silent=False):
 
         contact = Contact.query.filter_by(email=user_info['email']).first()
         if contact is not None:
-            duplicate_user += 1
+            duplicate_user += 1 # todo implement check for recently emailed users right here.
             user_pbar.set_description(f"Skipping {user_info['email']} (duplicate email)")
             continue
         # Fail first logic. Less queries could be better.
