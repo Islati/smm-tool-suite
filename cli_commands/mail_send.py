@@ -115,19 +115,18 @@ def mail_send(template, skip_duplicates=True,
             contact.verified_email = True
             contact.save(commit=True)
 
-        print(f"Checking message history for {user['email']}..")
-        print("Updated but not verified")
+        _users.set_description(f"Checking message history for {user['email']}..")
 
         sent_mail = SentMail.query.order_by(desc(SentMail.id)).filter_by(contact_id=user["contact"].id).first()
 
         if sent_mail is not None:
             if jellyfish.jaro_winkler_similarity(html_email,
                                                  sent_mail.mail.html) >= 0.75:
-                print(f"Skipping {user['email']} (duplicate message)")
+                _users.set_description(f"Skipping {user['email']} (duplicate message)")
                 continue
             continue
 
-        print(f"Sending email to {user['full_name']} ({user['email']}")
+        _users.set_description(f"Sending email to {user['full_name']} ({user['email']}")
 
         msg = Message(
             subject=mail_message.subject,
@@ -143,20 +142,20 @@ def mail_send(template, skip_duplicates=True,
             sent_mail_record = SentMail(contact=user["contact"], mail=mail_message)
             sent_mail_record.save(commit=True)
             sent_mail_message = True
-            print(f"+ Email to {user['email']}")
+            _users.set_description(f"+ Email to {user['email']}")
         except Exception as e:
             trace = traceback.format_exc()
             print(trace)
 
         mail_message.save(commit=True)
         if not sent_mail_message:
-            print(f"Failed to send email to {user['full_name']} ({user['email']})")
+            _users.set_description(f"Failed to send email to {user['full_name']} ({user['email']})")
             time.sleep(3)
             continue
 
         sleep_time = random.randint(sleep_min, sleep_max)
 
-        print(
+        _users.set_description(
             f"Sent email to {user['full_name']} ({user['email']})... Sleeping for {sleep_time} seconds")
 
         time.sleep(sleep_time)
