@@ -13,7 +13,6 @@ from tqdm import tqdm
 
 from bot.webapp import mail
 from bot.webapp.models import MailMessage, Contact, SentMail
-from verify_email import verify_email
 
 from cli_commands.import_csv_file import import_csv_file_command
 
