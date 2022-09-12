@@ -153,7 +153,8 @@ def clips():
 
 
 @cli.command('redo_clip', help="Post a specific cut of a video to the linked social media accounts")
-@click.argument("clip_id")
+@click.option('--clip_id', '-c', "clip_id", required=False, help="Clip id")
+@click.option('--last-clip', '-lc', "last_clip", required=False, default=False, is_flag=True, help="Post the last clip")
 @click.option('--description', '-d', "description", prompt="Description for the upload.")
 @click.option('--force', '-f', "skip_duplicate_check", is_flag=True, default=False,
               help="Force the post of the video, skipping duplicate checks.")
@@ -162,7 +163,7 @@ def clips():
 @click.option('--platforms', '-p', "platforms", default="tiktok,instagram,facebook,twitter,youtube")
 @click.option('--title', "title", required=False, help="Provide this if you're giving the clip a new title.")
 def redo(clip_id=None, description: str = None, skip_duplicate_check=False, schedule=None, platforms=None,
-         title=None):
+         title=None, last_clip=False):
     """
     Repost a previously edited clip.
     :param clip_id:
@@ -174,7 +175,7 @@ def redo(clip_id=None, description: str = None, skip_duplicate_check=False, sche
     :return:
     """
     redo_clip(clip_id=clip_id, description=description, skip_duplicate_check=skip_duplicate_check, schedule=schedule,
-              platforms=platforms, title=title)
+              platforms=platforms, title=title,last_clip=last_clip)
 
 
 @cli.command('history')
@@ -258,7 +259,7 @@ def test_mail(template):
 @click.option('--sleep-from', '-f', 'sleep_min', default=1, help="Time to start sending emails.")
 @click.option('--sleep-to', '-t', 'sleep_max', default=3, help="Time to start sending emails.")
 @click.option('--batch-size', '-b', 'batch_size', default=10, help="Number of emails to send at a time.")
-def mail_command(csv_file_location, template, sleep_min, sleep_max,batch_size):
+def mail_command(csv_file_location, template, sleep_min, sleep_max, batch_size):
     """
     Send an email to a list of recipients. If CSV file is not provided then they'll be loaded from the database.
     :param csv_file_location:
@@ -300,6 +301,7 @@ def import_csv_contacts(file, folder=None):
 
     else:
         import_csv_file_command(csv_file_location=os.path.expanduser(file), silent=False)
+
 
 @cli.command('gui')
 def run_gui():

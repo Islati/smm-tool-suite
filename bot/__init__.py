@@ -275,6 +275,10 @@ class VidBot(object):
         if self.clip_length == -1:
             self.clip_length = self.video.duration
             # write the entry to the db
+
+            video_clip_record = BotClip.query.filter_by(url=self.get_video_url(), start_time=start_time,
+                                                        duration=self.video.duration, title=self.post_title).first()
+
             video_clip_record = BotClip(url=self.get_video_url(), title=self.post_title,
                                         start_time=start_time,
                                         duration=self.video.duration)
@@ -285,7 +289,6 @@ class VidBot(object):
             return f"{self.downloaded_file_path if self.downloaded_file_path is not None else self.output_filename}", video_clip_record
 
         end_time = start_time + self.clip_length
-        print(f"Clipping video from {start_time}s to {end_time}s")
         # Create & save the clip
 
         if self.ffmpeg:
@@ -298,6 +301,11 @@ class VidBot(object):
             self.created_files.append(f"{self.output_filename}")
             # write the entry to the db
         else:
+            if self.video is None:
+                self.video = VideoFileClip(
+                    self.output_filename if self.output_filename is not None else self.local_video_clip_location if self.local_video_clip_location is not None else None)
+                print(
+                    f"Video clip is None. Setting video to {self.output_filename if self.output_filename is not None else self.local_video_clip_location if self.local_video_clip_location is not None else None}")
             self.clip = self.video.subclip(start_time, end_time)
             audio_clip = self.video.audio.subclip(start_time, end_time)
             #
@@ -610,7 +618,7 @@ class VidBot(object):
                     post = SocialMediaPost(api_id=api_id, platform=platform, media_upload=media_upload,
                                            post_time=date_time.datetime(
                                                to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
-                                           hashtags=compiled_keyword_list,)
+                                           hashtags=compiled_keyword_list, )
                     post.save(commit=True)
                     print("+ Scheduled on " + platform + " for " + self.scheduled_date)
 
@@ -734,10 +742,7 @@ class VidBot(object):
         """
 
         video_path = None
-
-        if not self.downloaded and (
-                self.google_drive_link is not None or self.youtube_video_download_link is not None or self.tiktok_video_url is not None):
-            video_path = self.download_video()
+        self.video_path = self.download_video()
 
         if self.local_video_clip_location is not None:
             if "mp4" not in mimetypes.guess_type(self.local_video_clip_location)[0]:
