@@ -64,18 +64,18 @@ class DefaultConfig(Config):
 
     PLATFORM_DEFAULTS = {
         'twitter': {
-            'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Retweet \n\n[desc] [hashtags]',
+            'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Retweet \n\n[desc]',
             'image_alt_text': "[title]"
         },
         'instagram': {
-            'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Comment\n[desc] [hashtags]',
+            'post': '🎶 Music @ http://skreet.ca 🔗 Follow, Like & Comment\n[desc]',
         },
         'youtube': {
             'post': '[desc] 🎶 Music @ http://skreet.ca 🔗 Like, Subscribe & Share \n[viddesc]',
             'visibility': "public",
         },
         "facebook": {
-            'post': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [hashtags]',
+            'post': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc]',
             'title': '[title]',
             'altText': '[desc]',
             'mediaCaptions': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [hashtags]'
