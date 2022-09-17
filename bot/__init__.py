@@ -159,8 +159,8 @@ class VidBot(object):
         if self.skip_duplicate_check is True:
             return False
 
-        search_clip = BotClip.query.filter_by(start_time=start_time,
-                                              url=self.get_video_url()).all()
+        search_clip = VideoClip.query.filter_by(start_time=start_time,
+                                                url=self.get_video_url()).all()
 
         if len(search_clip) == 0:
             return False
@@ -276,12 +276,12 @@ class VidBot(object):
             self.clip_length = self.video.duration
             # write the entry to the db
 
-            video_clip_record = BotClip.query.filter_by(url=self.get_video_url(), start_time=start_time,
-                                                        duration=self.video.duration, title=self.post_title).first()
+            video_clip_record = VideoClip.query.filter_by(url=self.get_video_url(), start_time=start_time,
+                                                          duration=self.video.duration, title=self.post_title).first()
 
-            video_clip_record = BotClip(url=self.get_video_url(), title=self.post_title,
-                                        start_time=start_time,
-                                        duration=self.video.duration)
+            video_clip_record = VideoClip(url=self.get_video_url(), title=self.post_title,
+                                          start_time=start_time,
+                                          duration=self.video.duration)
             video_clip_record.save(commit=True)
 
             print(
@@ -336,9 +336,9 @@ class VidBot(object):
             os.remove(f"clip_{self.output_filename}")
 
             # write the entry to the db
-        video_clip_record = BotClip(url=self.get_video_url(), title=self.post_title,
-                                    start_time=start_time,
-                                    duration=self.clip_length)
+        video_clip_record = VideoClip(url=self.get_video_url(), title=self.post_title,
+                                      start_time=start_time,
+                                      duration=self.clip_length)
         video_clip_record.save(commit=True)
 
         print(
@@ -354,7 +354,7 @@ class VidBot(object):
         """
         return random.randint(0 + self.skip_intro_time, math.floor(self.video.duration - self.clip_length))
 
-    def upload_file_to_cloud(self, video_clip: BotClip = None, image: ImageDb = None):
+    def upload_file_to_cloud(self, video_clip: VideoClip = None, image: ImageDb = None):
         """
         Uploads the video clip to social media via the API.
         :return:
@@ -422,64 +422,11 @@ class VidBot(object):
                             data=json_body)
         print(req.text)
 
-    def compile_keywords(self, post=False):
-        """
-        Compile the keywords (hashtags) for this vid. Uses the provided description, and any online source if available.
-        :return:
-        """
-        keywords = []
-
-        if post:
-            keywords = extract_hashtags(self.post_description)
-        keyword_length = 0
-
-        for keyword in keywords:
-            keyword_length += len(keyword)
-            if keyword_length >= 400:
-                break
-
-        if self.youtube_video_download_link is not None:
-            for keyword in self.yt_vid.keywords:
-                if keyword_length >= 400 or len(keyword) + keyword_length >= 400:
-                    break
-
-                keywords.append(keyword.replace("#", ""))
-                keyword_length += len(keyword)
-
-        if self.tiktok_video_url is not None:
-            for keyword in self.tiktok_downloader.hashtags:
-                if keyword_length >= 400 or len(keyword) + keyword_length >= 400:
-                    break
-
-                keywords.append(keyword)
-                keyword_length += len(keyword)
-
-        keywords = list(set(keywords))
-        return keywords
-
     def compile_hashtag_string(self):
         _str = ""
-        for keyword in self.compile_keywords(post=False):
+        for keyword in utils.compile_keywords(post_description=self.post_description):
             _str += f"#{keyword} "
         return _str.replace('##', "#")
-
-    def is_image_file(self, file):
-        if file is None:
-            return False
-        return 'image' in mimetypes.guess_type(file)[0]
-
-    def is_video_file(self, file):
-        """
-        Checks if the file is a video file.
-        :param file:
-        :return:
-        """
-        if file is None:
-            return False
-
-        mimetype = mimetypes.guess_type(file)[0]
-        return "video" in mimetype or 'gif' in mimetype
-
     def parse_tags(self, string):
         """
         Parse tags from the configuration file on the given input string, replacing the key with the generated value.

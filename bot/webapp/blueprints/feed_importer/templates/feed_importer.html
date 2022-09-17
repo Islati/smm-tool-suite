@@ -59,10 +59,12 @@
             let postTime = $('#formPostTime').val();
 
             $.post('/schedule/', JSON.stringify({
-                media_url: postUrl,
+                postUrl: mediaUrl,
                 body: postBody,
-                postTime: postTime
-            }))
+                time: postTime
+            }),function (data, status) {
+
+            });
         }
 
         function selectPostForRepost(postId) {
@@ -75,29 +77,25 @@
     </script>
 
     <div class="container">
-        {% if not posts %}
-
-            <div class="row">
-                <div class="col-sm-12">
-                    <h2>Feed Importer</h2>
-                </div>
+        <div class="row">
+            <div class="col-sm-12">
+                <h2>Feed Importer</h2>
             </div>
-            <div class="row">
-                <div class="col-sm-6">
-                    <form action="{{ url_for('feed_importer.load') }}">
-                        <div class="input-group">
-                            <input type="text" class="form-control" name="subredditString"
-                                   placeholder="{% if subreddit %}{{ subreddit }}{% else %}rapmemes{% endif %}"
-                                   aria-describedby="feedScrapeButton" aria-label="Upload"
-                                   {% if subreddit %}value="{{ subreddit }}"{% endif %}>
-                            <button class="btn btn-outline-primary" type="button" id="feedScrapeButton" onclick="">Load
-                            </button>
-                        </div>
-                    </form>
-                </div>
+        </div>
+        <div class="row">
+            <div class="col-sm-6">
+                <form action="{{ url_for('feed_importer.load') }}">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="subredditString"
+                               placeholder="{% if subreddit %}{{ subreddit }}{% else %}rapmemes{% endif %}"
+                               aria-describedby="feedScrapeButton" aria-label="Upload"
+                               {% if subreddit %}value="{{ subreddit }}"{% endif %}>
+                        <button class="btn btn-outline-primary" type="button" id="feedScrapeButton" onclick="">Load
+                        </button>
+                    </div>
+                </form>
             </div>
-
-        {% endif %}
+        </div>
 
         {% if posts %}
             <div class="row mt-3">

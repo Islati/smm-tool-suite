@@ -4,7 +4,7 @@ from tabulate import tabulate
 from bot.webapp.models import VideoClip as BotClip
 
 def view_clips():
-    clips = BotClip.query.all()
+    clips = VideoClip.query.all()
     click.echo(f"Clips Edited: {len(clips)}")
 
     if len(clips) == 0:

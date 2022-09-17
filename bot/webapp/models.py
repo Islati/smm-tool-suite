@@ -215,6 +215,9 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
     platform = db.Column(db.Text, nullable=False)
     post_url = db.Column(db.Text, nullable=True)
 
+    title = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text, nullable=True)
+
     post_time = db.Column(db.DateTime, nullable=True)
 
     media_upload = db.relationship("MediaUpload", backref=backref("social_media_post", uselist=False), uselist=False)

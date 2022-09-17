@@ -53,7 +53,7 @@ def create_app(configuration=None) -> Flask:
 
     @app.template_filter('slangtime')
     def slangtime(s):
-        return maya.MayaDT.from_datetime(datetime.datetime.fromtimestamp(float(s),tz=pytz.utc)).slang_time()
+        return maya.MayaDT.from_datetime(datetime.datetime.fromtimestamp(float(s), tz=pytz.utc)).slang_time()
 
     app.register_blueprint(feed_importer_blueprint)
 

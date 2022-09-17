@@ -8,11 +8,11 @@ from bot.webapp.models import VideoClip as BotClip
 def redo_clip(clip_id=None, description: str = None, skip_duplicate_check=False, schedule=None, platforms=None,
               title=None, last_clip=False):
     if last_clip:
-        clip = BotClip.query.order_by(BotClip.id.desc()).first()
+        clip = VideoClip.query.order_by(VideoClip.id.desc()).first()
         print(
             f"LATEST CLIP: id={clip.id} | title={clip.title} | duration={clip.duration} | start_time={clip.start_time} | url={clip.url}")
     else:
-        clip = BotClip.query.filter_by(id=clip_id).first()
+        clip = VideoClip.query.filter_by(id=clip_id).first()
 
     if clip is None:
         click.echo(f"Could not find clip with id {clip_id}")

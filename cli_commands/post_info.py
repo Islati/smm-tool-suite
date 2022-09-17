@@ -41,7 +41,7 @@ def post_info(clip_id=None, url=None, image_id=None, print_intro_header=True):
         # Process video clip
         if clip_id is not None:
             for clip_id in clip_id.split(","):
-                clip = BotClip.query.filter_by(id=clip_id).first()
+                clip = VideoClip.query.filter_by(id=clip_id).first()
 
                 if clip is None:
                     click.echo(f"! Could not find clip with id {clip_id}")
@@ -68,7 +68,7 @@ def post_info(clip_id=None, url=None, image_id=None, print_intro_header=True):
                 matching_object.append(db_image.upload)
 
     if clip_id is not None and ',' not in clip_id:
-        clip = BotClip.query.filter_by(id=clip_id).first()
+        clip = VideoClip.query.filter_by(id=clip_id).first()
         if clip is None:
             click.echo(f"Could not find clip with url {url}")
             return
@@ -94,7 +94,7 @@ def post_info(clip_id=None, url=None, image_id=None, print_intro_header=True):
 
     if url is not None:
         if 'tiktok' in url or 'youtube' in url or 'drive.google' in url or "youtu.be" in url:
-            clip = BotClip.query.filter_by(url=url).first()
+            clip = VideoClip.query.filter_by(url=url).first()
 
             if clip is None:
                 click.echo(f"Could not find clip with url {url}")
