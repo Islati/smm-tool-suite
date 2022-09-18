@@ -5,12 +5,26 @@ import shutil
 import subprocess as sp
 from itertools import islice
 
+import maya
 import requests
 from pytube import YouTube
 
-from bot import VideoClip, ImageDb, MediaUpload, TikTokDownloader
+from bot.webapp.models import VideoClip, ImageDb, MediaUpload, SocialMediaPost, PublishedSocialMediaPost
+from bot.services.tiktok import TikTokDownloader
 
 from flask import current_app
+
+
+def get_maya_time(time):
+    try:
+        date_time: maya.MayaDT = maya.when(time, timezone="UTC")
+    except:
+        try:
+            date_time: maya.MayaDT = maya.parse(time, timezone="UTC")
+        except:
+            date_time: maya.MayaDT = maya.MayaDT.from_iso8601(time)
+
+    return date_time
 
 
 def compile_keywords(post_description: str = None, youtube_video: YouTube = None, tiktok_video: TikTokDownloader = None,
@@ -73,158 +87,95 @@ def is_video_file(file):
     return "video" in mimetype or 'gif' in mimetype
 
 
-def post_to_socials(local_file_name, title, description, media_upload: MediaUpload, platforms):
+def post_to_social(platforms: list, social_media_post: SocialMediaPost, thumbnail=None, tags=None,
+                   youtube_video_visibility="public", instagram_post_to_reels=True,
+                   instagram_share_reels_to_feed=True) -> tuple[bool, str, int, str]:
     """
-    Send the video clip to TikTok via the API.
-    Does not currently support setting description / hashtags so these will be done via the user when approving the upload inside the official TikTok API.
-
-    :param media_upload:
+    Posts the video to the social media platforms using Ayrshare. Each post is handled in a single request,
+    thus linking each social network post to a SocialMediaPost via an api_id which can be queried
+    :param platforms: list of platforms to post to
+    :param social_media_post:
+    :param thumbnail:
+    :param tags:
+    :param youtube_video_visibility:
+    :param instagram_post_to_reels:
+    :param instagram_share_reels_to_feed:
     :return:
     """
+    post_data = {
+        "post": f"{social_media_post.description}",
+        "platforms": platforms,
+        "mediaUrls": [social_media_post.media_upload.access_url],
+        "isVideo": social_media_post.is_video,
+        "shortenLinks": False,
+        "requiresApproval": False,
+    }
 
     date_time = None
-
-    _is_video_file = is_video_file(local_file_name)
-
-    platform_defaults = current_app.config.get('PLATFORM_DEFAULTS')
-
-    compiled_keyword_list = compile_keywords(post_description=media_upload.clip.description)
-
-    post_data = {}
-    # post to each social platform one by one,
-    for platform in platforms.split(','):
-        post_data = {
-            "post": f"{description}",
-            "platforms": platform,
-            "mediaUrls": [media_upload.access_url],
-            "isVideo": is_video_file,
-            "shortenLinks": False,
-            "requiresApproval": False,
-        }
-
-        # todo image alt text on media platforms being set.
-
-        # Match the platforms we're
-        # with the default values for that platform.
+    for platform in platforms:
         match platform:
             case "twitter":
                 pass
             case "facebook":
-                pass
+                if social_media_post.media_upload.is_video:
+                    post_data['faceBookOptions']["title"] = social_media_post.title
+                if thumbnail is not None:
+                    post_data['faceBookOptions']["thumbnailUrl"] = thumbnail
             case "instagram":
-                pass
+                post_data["instagramOptions"] = {
+                    "reels": instagram_post_to_reels,
+                    "shareReelsFeed": instagram_share_reels_to_feed,
+                }
             case "tiktok":
                 pass
             case "youtube":
                 post_data["youTubeOptions"] = {
-                    "title": media_upload.title,
-                    "post": post_data['post'],
-                    "tags": compiled_keyword_list,
-                    "visibility": platform_defaults['youtube']['visibility'] if 'visibility' in platform_defaults[
-                        'youtube'].keys() else "public",
+                    "title": social_media_post.title,
+                    "post": social_media_post.description,
+                    "tags": tags,
+                    "visibility": youtube_video_visibility,
                     # todo IMPLEMENT THUMBNAIL CUSTOMIZATION
-                    "thumbNail": thumbnail_url,
                     "madeForKids": False,
-                    "shorts": True,
+                    "shorts": social_media_post.media_upload.duration <= 60,
                 }
-    case
-    "instagram":
-    if 'post' in platform_defaults['instagram'].keys():
-        post_data['post'] = self.parse_tags(platform_defaults['instagram']['post'])[0:2200]
-    if self.is_video_file(filename):
-        post_data["instagramOptions"] = {
-            "reels": True,
-            "shareReelsFeed": True,
-        }
-    case
-    "youtube":
-    if 'post' in platform_defaults['youtube'].keys():
-        post_data['post'] = self.parse_tags(platform_defaults['youtube']['post'])
 
-    thumbnail_url = None
+                if thumbnail is not None:
+                    post_data['youTubeOptions']["thumbNail"] = thumbnail
 
-    if self.youtube_video_download_link is not None:
-        thumbnail_url = self.yt_vid.thumbnail_url
+    if social_media_post.post_time is not None:
+        date_time = get_maya_time(social_media_post.post_time)
 
-    if self.tiktok_video_url is not None:
-        thumbnail_url = self.tiktok_downloader.thumbnail_url
+    if date_time is not None:
+        post_data["scheduleDate"] = date_time.iso8601()
 
-    post_data["youTubeOptions"] = {
-        "title": self.post_title[0:100],
-        "post": post_data['post'],
-        "tags": compiled_keyword_list,
-        "visibility": platform_defaults['youtube']['visibility'] if 'visibility' in platform_defaults[
-            'youtube'].keys() else "public",
-        # todo IMPLEMENT THUMBNAIL CUSTOMIZATION
-        "thumbNail": thumbnail_url,
-        "madeForKids": False,
-        "shorts": True,
-    }
-
-    if post_data['youTubeOptions']['thumbNail'] is None:
-        del post_data['youTubeOptions']['thumbNail']
-    case
-    "facebook":
-    if 'post' in platform_defaults['facebook'].keys():
-        post_data['post'] = self.parse_tags(platform_defaults['facebook']['post'])
-
-    post_data['faceBookOptions'] = {
-        "altText": self.parse_tags(platform_defaults['facebook']['altText']),
-        "mediaCaptions": self.parse_tags(platform_defaults['facebook']['mediaCaptions']),
-    }
-
-    if is_video_file:
-        post_data['faceBookOptions']["title"] = self.parse_tags(platform_defaults['facebook']['title']),
-
-    # If there's a scheduled date set, process that value.
-    if self.scheduled_date is not None:
-        try:
-            date_time: maya.MayaDT = maya.when(self.scheduled_date, timezone="UTC")
-        except:
-            try:
-                date_time: maya.MayaDT = maya.parse(self.scheduled_date, timezone="UTC")
-            except:
-                date_time: maya.MayaDT = maya.MayaDT.from_iso8601(self.scheduled_date)
-
-    post_data['scheduleDate'] = date_time.iso8601()
-
-    if platform == "twitter":
-        post_data['post'] = post_data['post'][0:260]
-        print('post emails trimmed to  {}'.format(len(post_data['post'])))
-    # Post the request to AYRShare.
     resp = requests.post("https://app.ayrshare.com/api/post",
-                         headers={'Authorization': f'Bearer {self.application_config.MAILTRAP_API_KEY}'},
+                         headers={'Authorization': f'Bearer {current_app.config.get("AYRSHARE_API_KEY")}'},
                          json=post_data)
-    if resp.status_code == 200:
-        resp = resp.json()
-        api_id = resp['id']
 
-        if resp['status'] == 'scheduled':
-            post = SocialMediaPost(api_id=api_id, platform=platform, media_upload=media_upload,
-                                   post_time=date_time.datetime(
-                                       to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
-                                   hashtags=compiled_keyword_list, )
-            post.save(commit=True)
-            print("+ Scheduled on " + platform + " for " + self.scheduled_date)
+    if resp.status_code != 200:
+        return False, "", resp.status_code, resp.text
 
-        elif resp['status'] == 'success':
-            if 'postIds' in resp.keys():
-                for entry in resp['postIds']:
-                    if entry['status'] != 'success':
-                        print(f"!! Failed to post to {entry['platform']}")
-                        continue
+    resp = resp.json()
+    api_id = resp['id']
+    social_media_post.api_id = api_id
+    social_media_post.save(commit=True)
 
-                    post = SocialMediaPost(api_id=api_id, platform=entry['platform'],
-                                           post_url=entry['postUrl'] if 'postUrl' in entry.keys() else None,
-                                           media_upload=media_upload, post_time=date_time.datetime(
-                            to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
-                                           hashtags=compiled_keyword_list)
-                    post.save(commit=True)
-                    print("+ Posted to " + entry['platform'])
+    if resp['status'] == 'scheduled':
+        # todo implement check for data about post urls from ayrshare api when this is retrieved on UI somewhere
+        return True, api_id, resp.status_code, f"Successfully scheduled for {date_time.slang_time()} to {', '.join(platforms)}"
+    elif resp['status'] == 'success':
+        post_ids = resp['postIds']
+        for post in post_ids:
+            published_data = PublishedSocialMediaPost(platform=post['platform'],
+                                                      social_media_post=social_media_post,
+                                                      post_url=post['postUrl'])
 
-    else:
-        print(f"Failed to post to socials with status code {resp.status_code}")
-        print(f"Response: {resp.text}")
+            social_media_post.published_data.append(published_data)
+            published_data.save(commit=True)
+
+        return True, api_id, resp.status_code, f"Successfully posted to {', '.join(platforms)}"
+
+    return False, "", resp.status_code, resp.text
 
 
 def upload_file_to_cloud(local_file_path, video_clip: VideoClip = None, image: ImageDb = None):

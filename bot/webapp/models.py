@@ -211,8 +211,8 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
     """
     __tablename__ = "social_media_posts"
 
-    api_id = db.Column(db.Text, nullable=False)
-    platform = db.Column(db.Text, nullable=False)
+    api_id = db.Column(db.Text, nullable=True)
+    platforms = db.Column(db.Text, nullable=True)
     post_url = db.Column(db.Text, nullable=True)
 
     title = db.Column(db.Text, nullable=True)
@@ -225,13 +225,19 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
 
     hashtags = db.relationship("Hashtag", secondary=post_hashtags_table, backref="posts")
 
-    def __init__(self, api_id, platform, post_time, media_upload, hashtags, post_url=None):
-        super().__init__(api_id=api_id, platform=platform,
+    published_data = db.relationship("PublishedSocialMediaPost",
+                                     backref=backref("social_media_post", uselist=False), uselist=True)
+
+    def __init__(self, api_id, platforms, post_time, media_upload, hashtags, post_url=None, title=None,
+                 description=None):
+        super().__init__(api_id=api_id, platforms=platforms,
                          post_time=maya.MayaDT.from_iso8601(post_time).datetime(),
                          post_url=post_url,
                          media_upload=media_upload,
                          media_upload_id=media_upload.id,
-                         hashtags=[Hashtag.get_or_create(name=hashtag) for hashtag in hashtags])
+                         hashtags=[Hashtag.get_or_create(name=hashtag) for hashtag in hashtags],
+                         title=title,
+                         description=description.replace("\n", "\u2063\n") if description is not None else None)
 
     @hybrid_property
     def is_video(self):
@@ -240,3 +246,22 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
     @hybrid_property
     def is_image(self):
         return self.media_upload.is_image
+
+
+class PublishedSocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
+    """
+    Represents a social media post made with the API
+    """
+    __tablename__ = "published_social_media_posts"
+
+    platform = db.Column(db.Text, nullable=False)
+    social_media_post_id = db.Column(db.Integer, db.ForeignKey('social_media_posts.id'), nullable=False)
+    social_media_post = db.relationship("SocialMediaPost", backref=backref("published_data", uselist=True),
+                                        uselist=False)
+
+    post_url = db.Column(db.Text, nullable=True)
+
+    def __init__(self, platform, social_media_post, post_url):
+        super().__init__(platform=platform, social_media_post=social_media_post,
+                         social_media_post_id=social_media_post.id,
+                         post_url=post_url)

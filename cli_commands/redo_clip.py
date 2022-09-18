@@ -2,7 +2,7 @@ import click
 from sqlalchemy import desc
 
 from bot import VidBot
-from bot.webapp.models import VideoClip as BotClip
+from bot.webapp.models import VideoClip
 
 
 def redo_clip(clip_id=None, description: str = None, skip_duplicate_check=False, schedule=None, platforms=None,

@@ -6,9 +6,8 @@ import requests
 from flask import Blueprint, render_template, request, jsonify
 from praw.reddit import Submission
 
-from bot import VidBot, utils
 from bot.services.reddit import client as reddit_client
-from bot.webapp.models import RedditRepost, ImageDb
+from bot.webapp.models import RedditRepost, ImageDb, SocialMediaPost
 
 feed_importer = Blueprint('feed_importer', __name__, template_folder='templates', static_folder='static',
                           url_prefix='/feed-importer')
@@ -24,10 +23,14 @@ valid_sort_methods = ('hot', 'new', 'rising', 'controversial', 'top')
 
 @feed_importer.route('/schedule/', methods=['POST'])
 def schedule():
+    from bot.utils import upload_file_to_cloud, post_to_social, download_image, get_maya_time
+
     _json = request.get_json(force=True)
     media_url = _json['postUrl']
     body = _json['body']
     time = _json['time']
+    platforms = _json['platforms']
+    tags = _json['tags']
 
     # Get submission from reddit API (PRAW object)
     post = Submission(reddit=reddit_client.reddit, url=media_url)
@@ -38,7 +41,7 @@ def schedule():
     # output_file_name = f"meme-{post.id}-post{extension}"
 
     # download image
-    downloaded_file = utils.download_image(media_url, output_file_name)
+    downloaded_file = download_image(media_url, output_file_name)
     if downloaded_file is None or not os.path.exists(downloaded_file):
         return jsonify({"error": "Failed to download image"}), 500
 
@@ -46,25 +49,28 @@ def schedule():
     image_record = ImageDb(url=media_url, title=post.title, description=body)
     image_record.save()
 
-    media_upload = utils.upload_file_to_cloud(downloaded_file, image=image_record)
+    media_upload = upload_file_to_cloud(downloaded_file, image=image_record)
 
     if media_upload is None:
         return jsonify({"error": "Failed to upload image to cloud"}), 500
 
-    os.remove(downloaded_file) # remove downloaded file
+    os.remove(downloaded_file)  # remove downloaded file
 
+    social_media_post = SocialMediaPost(None, platforms=platforms,
+                                        post_time=get_maya_time(time).datetime(to_timezone='UTC'),
+                                        media_upload=media_upload, hashtags=tags, post_url=media_url, title=post.title,
+                                        description=body)
+
+    success, api_key, status_code, response_text = post_to_social(platforms,
+                                                                  social_media_post)  # all that's required for an image post.
+
+    social_media_post.save(commit=True)
+    if not success:
+        return jsonify(
+            {"error": f"Failed to post to social media. Status Code: {status_code}, Response: {response_text}"}), 500
     # post to socials.s
     # return json for UI display.
-
-    bot = VidBot(
-        image_url=media_url,
-        output_filename=output_file_name,
-        post_description=body,
-        skip_duplicate_check=False, scheduled_date=time,
-        platforms="facebook", post_title=post.title
-    )
-
-    bot.post_image()
+    return jsonify({"success": f"Scheduled post for {get_maya_time(time).slang_date()}"}), 200
 
 
 @feed_importer.route('/load/', methods=['POST'])

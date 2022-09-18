@@ -57,11 +57,13 @@
             let mediaUrl = $('#activePostImage').attr('src');
             let postBody = $('#formPostBody').val();
             let postTime = $('#formPostTime').val();
+            let platforms = $('#formPlatforms').val();
 
             $.post('/schedule/', JSON.stringify({
                 postUrl: mediaUrl,
                 body: postBody,
-                time: postTime
+                time: postTime,
+                platforms:
             }),function (data, status) {
 
             });
@@ -142,7 +144,6 @@
                         {% endfor %}
                     </div>
                 </div>
-
 
                 {#  Post Customizer #}
                 <div class="offset-sm-1 col-sm-6">

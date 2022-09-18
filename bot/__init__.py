@@ -21,7 +21,7 @@ from bot.utils import ffmpeg_convert_to_mp4, ffmpeg_extract_subclip, extract_has
 from bot.webapp.config import DefaultConfig
 from bot.webapp.models import ImageDb, VideoClip as BotClip, MediaUpload, SocialMediaPost, VideoClip
 
-social = SocialPost(DefaultConfig.MAILTRAP_API_KEY)
+social = SocialPost(DefaultConfig.AYRSHARE_API_KEY)
 
 
 class VidBot(object):
@@ -387,7 +387,7 @@ class VidBot(object):
 
         # retrieve the information
         req = requests.get("https://app.ayrshare.com/api/media/uploadUrl",
-                           headers={'Authorization': f'Bearer {self.application_config.MAILTRAP_API_KEY}'},
+                           headers={'Authorization': f'Bearer {self.application_config.AYRSHARE_API_KEY}'},
                            params={'contentType': content_type,
                                    'fileName': f"{filename}"})
 
@@ -555,14 +555,14 @@ class VidBot(object):
                 print('post emails trimmed to  {}'.format(len(post_data['post'])))
             # Post the request to AYRShare.
             resp = requests.post("https://app.ayrshare.com/api/post",
-                                 headers={'Authorization': f'Bearer {self.application_config.MAILTRAP_API_KEY}'},
+                                 headers={'Authorization': f'Bearer {self.application_config.AYRSHARE_API_KEY}'},
                                  json=post_data)
             if resp.status_code == 200:
                 resp = resp.json()
                 api_id = resp['id']
 
                 if resp['status'] == 'scheduled':
-                    post = SocialMediaPost(api_id=api_id, platform=platform, media_upload=media_upload,
+                    post = SocialMediaPost(api_id=api_id, platforms=platform, media_upload=media_upload,
                                            post_time=date_time.datetime(
                                                to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
                                            hashtags=compiled_keyword_list, )
@@ -576,7 +576,7 @@ class VidBot(object):
                                 print(f"!! Failed to post to {entry['platform']}")
                                 continue
 
-                            post = SocialMediaPost(api_id=api_id, platform=entry['platform'],
+                            post = SocialMediaPost(api_id=api_id, platforms=entry['platform'],
                                                    post_url=entry['postUrl'] if 'postUrl' in entry.keys() else None,
                                                    media_upload=media_upload, post_time=date_time.datetime(
                                     to_timezone="UTC") if date_time is not None else datetime.datetime.utcnow(),
