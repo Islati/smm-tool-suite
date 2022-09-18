@@ -1,4 +1,5 @@
 import mimetypes
+import traceback
 from urllib.parse import urlparse
 import os
 
@@ -61,34 +62,48 @@ def schedule():
 
     social_media_post = SocialMediaPost(None, platforms=platforms,
                                         post_time=get_maya_time(time).datetime(to_timezone='UTC'),
-                                        media_upload=media_upload, hashtags=tags, post_url=media_url, title=post.title,
+                                        media_upload=media_upload, hashtags=tags, title=post.title,
                                         description=body)
 
-    success, api_key, status_code, response_text = post_to_social(platforms.split(',') if (',' in platforms and isinstance(platforms,str)) else [platforms],
-                                                                  social_media_post)  # all that's required for an image post.
+    success, api_key, status_code, response_text = post_to_social(
+        platforms.split(',') if (',' in platforms and isinstance(platforms, str)) else [platforms],
+        social_media_post)  # all that's required for an image post.
 
     social_media_post.save(commit=True)
     if not success:
-        flash(f"Failed to post to social media.\nStatus Code: {status_code}\nResponse: {response_text}", "error")
+        flash(f"Failed to post to social media.\nStatus Code: {status_code}\nResponse: {response_text}",
+              category="error")
         return redirect(url_for('feed_importer.index'))
         # post to socials.s
     # return json for UI display.
     flash("Successfully created post!", "success")
     reddit_repost = RedditRepost(post_id=post.id, title=post.title, url=post.url)
+    reddit_repost.save(commit=True)
     return redirect(url_for('feed_importer.index'))
 
 
 @feed_importer.route('/load/', methods=['POST'])
-def load(subreddit, sort_method):
-    try:
-        subreddit_string = request.form['subredditString']
-    except:
+def load(subreddit=None, sort_method=None):
+    print("Request Form Data: ", request.form)
+    # print("Request Json Data: ", request.json)
+    print("Requet data", request.data)
+    if subreddit is None and sort_method is None:
+        try:
+            subreddit_string = request.form.get('subreddit')
+            sort_method_selected = request.form.get('sortMethod')
+            print(f"Subreddit: {subreddit_string}, Sort Method: {sort_method_selected}")
+        except Exception as ex:
+            subreddit_string = subreddit
+            sort_method_selected = sort_method
+    else:
         subreddit_string = subreddit
+        sort_method_selected = sort_method
 
-    posts = reddit_client.get_posts(subreddit, limit=10)
+    posts = reddit_client.get_posts(subreddit=subreddit_string, limit=50)
 
     # Skip non-image posts & images we've posted before.
     _posts = [post for post in posts if
               (post.is_self is False and RedditRepost.has_been_posted(post.id) is False)]  # link only filter.
 
-    return render_template('feed_importer.html', subreddit=subreddit, posts=_posts)
+    return render_template('feed_importer.html', subreddit=subreddit_string, posts=_posts,
+                           sort_method=sort_method_selected)

@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 
 {% block head %}
+    <style type="text/css">
+        .list-group {
+            max-height: 600px;
+            margin-bottom: 10px;
+            overflow: scroll;
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
 {% endblock %}
 
 {% block title %}Tools Overview{% endblock %}
@@ -18,7 +26,7 @@
         var postUpvotes = 0;
         var postUrl = "";
         var postsSelected = []; //list of posts that will be pushed.
-        var platforms = "facebook,instagram,twitter";
+        var platforms = "facebook";
 
         function setActivePost(id, title, body, author, date, upvotes, url) {
             console.log("Setting active post to " + id);
@@ -73,140 +81,155 @@
             </div>
         </div>
         <div class="row">
-            <div class="col-sm-6">
-                <form action="{{ url_for('feed_importer.load') }}">
-                    <div class="input-group">
-                        <input type="text" class="form-control" name="subredditString"
-                               placeholder="{% if subreddit %}{{ subreddit }}{% else %}rapmemes{% endif %}"
-                               aria-describedby="feedScrapeButton" aria-label="Upload"
-                               {% if subreddit %}value="{{ subreddit }}"{% endif %}>
-                        <button class="btn btn-outline-primary" type="button" id="feedScrapeButton" onclick="">Load
-                        </button>
+            <form action="{{ url_for('feed_importer.load') }}" method="post">
+                <div class="row">
+                    <div class="col-sm-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="subreddit"
+                                   placeholder="{% if subreddit %}{{ subreddit }}{% else %}rapmemes{% endif %}"
+                                   aria-describedby="feedScrapeButton" aria-label="subreddit"
+                                   {% if subreddit %}value="{{ subreddit }}"{% endif %} id="subreddit">
+                            <button class="btn btn-outline-primary" type="submit" id="feedScrapeButton">Load
+                            </button>
+                        </div>
                     </div>
-                </form>
+
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-4">
+
+                        <div class="input-group">
+                            <label id="sortLabel" class="input-group-text">Sort By</label>
+                            <input type="text" class="form-control" name="sortMethod" value="{{ sort_method }}" placeholder="hot"
+                                   aria-describedby="sortLabel" aria-label="sort" id="sortMethod">
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if posts %}
+        <div class="row mt-3">
+            <div class="col-sm-12">
+                <div class="alert alert-success" role="alert">
+                    <small class="text-muted">Select Posts for Processing</small>
+                </div>
             </div>
         </div>
 
-        {% if posts %}
-            <div class="row mt-3">
-                <div class="col-sm-12">
-                    <div class="alert alert-success" role="alert">
-                        <h3>Select Posts for Processing</h3>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row">
-                {#  List Selection #}
-                <div class="col-sm-4">
-                    <div class="list-group">
-                        {% for post in posts %}
-                            <a href="#" class="list-group-item list-group-item-action"
-                               onclick="setActivePost('{{ post.id }}','{{ post.title }}','{{ post.body }}','{{ post.author }}','{{ post.created_utc }}',{{ post.score }},'{{ post.url }}')">
-                                <div class="row">
-                                    <div class="col-sm-4">
-                                        <img src="{{ post.thumbnail }}" class="img-thumbnail img-rounded" height="150"
-                                             width="150">
-                                    </div>
-                                    <div class="col-sm-8">
-                                        <div class="row">
-                                            <div class="col-sm-9">
-                                                <span class="text-wrap fs-5">{{ post.title }}</span>
-                                            </div>
-                                            <div class="col-sm-3">
+        <div class="row">
+            {#  List Selection #}
+            <div class="col-sm-4">
+                <div class="list-group">
+                    {% for post in posts %}
+                        <a class="list-group-item list-group-item-action"
+                           onclick="setActivePost('{{ post.id }}','{{ post.title }}','{{ post.body }}','{{ post.author }}','{{ post.created_utc }}',{{ post.score }},'{{ post.url }}')">
+                            <div class="row">
+                                <div class="col-sm-4">
+                                    <img src="{{ post.thumbnail }}" class="img-thumbnail img-rounded" height="150"
+                                         width="150">
+                                </div>
+                                <div class="col-sm-8">
+                                    <div class="row">
+                                        <div class="col-sm-9">
+                                            <span class="text-wrap fs-5">{{ post.title }}</span>
+                                        </div>
+                                        <div class="col-sm-3">
                                                 <span class="badge bg-success rounded-pill"><i
                                                         class="bi bi-arrow-up"></i>{{ post.score }}</span>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col">
-                                                <span class="badge bg-primary rounded-pill"><i
-                                                        class="bi bi-person"></i>{{ post.created_utc | slangtime }}</span>
-                                                <span class="badge bg-info rounded-pill"><i
-                                                        class="bi bi-person"></i>{{ post.author }}</span>
-                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </a>
-                        {% endfor %}
-                    </div>
-                </div>
-
-                {#  Post Customizer #}
-                <div class="offset-sm-1 col-sm-6">
-                    <div class="card" style="padding: 5px;">
-                        <img class="card-img-top" id="activePostImage" src="{{ posts[0].url }}">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="text-center col-sm-12">
-                                    <h2>Repost Configuration</h2>
-                                    <div class="row" style="font-size: 12px;">
-                                        <a href="{{ posts[0].url }}"
-                                           target="_blank"
-                                           id="postUrlButton">(View Post)</a>
+                                    <div class="row">
+                                        <div class="col">
+                                                <span class="badge bg-primary rounded-pill"><i
+                                                        class="bi bi-person"></i>{{ post.created_utc | slangtime }}</span>
+                                            <span class="badge bg-info rounded-pill"><i
+                                                    class="bi bi-person"></i>{{ post.author }}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
 
+            {#  Post Customizer #}
+            <div class="offset-sm-1 col-sm-6">
+                <div class="card" style="padding: 5px;">
+                    <img class="card-img-top" id="activePostImage" src="{{ posts[0].url }}">
+                    <div class="card-body">
                         <div class="row">
-                            <form action="{{ url_for('feed_importer.schedule') }}" method="post">
-                                <input type="hidden" value="{{ posts[0].url }}" id="formPostUrl" name="postUrl">
-                                <input type="hidden" value="{{ posts[0].id }}" id="formPostId" name="postId">
-                                <div class="row mb-2">
-                                    <div class="col-sm-12">
-                                        <div class="input-group flex-nowrap">
-                                            <span class="input-group-text" id="bodyTextLabel">Post Body</span>
-                                            <textarea class="form-control" aria-label="Post Body"
-                                                      aria-describedby="bodyTextLabel"
-                                                      name="body"
-                                                      rows="10"
-                                                      style="height: auto;"
-                                                      id="formPostBody">{{ posts[0].title }}</textarea>
-                                        </div>
-                                    </div>
+                            <div class="text-center col-sm-12">
+                                <h2>Repost Configuration</h2>
+                                <div class="row" style="font-size: 12px;">
+                                    <a href="{{ posts[0].url }}"
+                                       target="_blank"
+                                       id="postUrlButton">(View Post)</a>
                                 </div>
-                                <div class="row">
-                                    <div class="col-sm-4">
-                                        <div class="input-group flex-nowrap">
-                                            <span class="input-group-text" id="postTimeLabel">Post Time</span>
-                                            <input type="text" class="form-control" aria-label="In 5 Minutes"
-                                                   placeholder="In 5 Minutes"
-                                                   name="time"
-                                                   aria-describedby="postTimeLabel" value="In 28 hours"
-                                                   id="formPostTime">
-                                        </div>
-                                    </div>
-
-                                    <div class="col-sm-6">
-                                        <div class="input-group flex-nowrap">
-                                            <span class="input-group-text" id="platformsLabel">Platforms</span>
-                                            <input type="text" class="form-control"
-                                                   aria-label="facebook,twitter,instagram"
-                                                   placeholder="facebook,twitter,instagram"
-                                                   name="platforms"
-                                                   aria-describedby="platformsLabel" value="facebook,twitter,instagram"
-                                                   id="formPlatforms">
-                                        </div>
-                                    </div>
-
-                                    <div class="col-sm-2">
-                                        <button type="submit" class="btn btn-success">
-                                            Post
-                                        </button>
-                                    </div>
-                                </div>
-
-                            </form>
+                            </div>
                         </div>
                     </div>
+
+                    <div class="row">
+                        <form action="{{ url_for('feed_importer.schedule') }}" method="post">
+                            <input type="hidden" value="{{ posts[0].url }}" id="formPostUrl" name="postUrl">
+                            <input type="hidden" value="{{ posts[0].id }}" id="formPostId" name="postId">
+                            <div class="row mb-2">
+                                <div class="col-sm-12">
+                                    <div class="input-group flex-nowrap">
+                                        <span class="input-group-text" id="bodyTextLabel">Post Body</span>
+                                        <textarea class="form-control" aria-label="Post Body"
+                                                  aria-describedby="bodyTextLabel"
+                                                  name="body"
+                                                  rows="10"
+                                                  style="height: auto;"
+                                                  id="formPostBody">{{ posts[0].title }}</textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-sm-4">
+                                    <div class="input-group flex-nowrap">
+                                        <span class="input-group-text" id="postTimeLabel">Post Time</span>
+                                        <input type="text" class="form-control" aria-label="In 5 Minutes"
+                                               placeholder="In 5 Minutes"
+                                               name="time"
+                                               aria-describedby="postTimeLabel" value="In 28 hours"
+                                               id="formPostTime">
+                                    </div>
+                                </div>
+
+                                <div class="col-sm-6">
+                                    <div class="input-group flex-nowrap">
+                                        <span class="input-group-text" id="platformsLabel">Platforms</span>
+                                        <input type="text" class="form-control"
+                                               aria-label="facebook,twitter,instagram"
+                                               placeholder="facebook,twitter,instagram"
+                                               name="platforms"
+                                               aria-describedby="platformsLabel" value="facebook"
+                                               id="formPlatforms">
+                                    </div>
+                                </div>
+
+                                <div class="col-sm-2">
+                                    <button type="submit" class="btn btn-success">
+                                        Post
+                                    </button>
+                                </div>
+                            </div>
+
+                        </form>
+                    </div>
                 </div>
-
-            </div>
             </div>
 
-        {% endif %}
+        </div>
+        </div>
+
+    {% endif %}
 
     </div>
 

@@ -115,7 +115,7 @@ def post_to_social(platforms: list, social_media_post: SocialMediaPost, thumbnai
     for platform in platforms:
         match platform:
             case "twitter":
-                pass
+                post_data['post'] = post_data['post'][:280]
             case "facebook":
                 if social_media_post.media_upload.is_video:
                     post_data['faceBookOptions']["title"] = social_media_post.title

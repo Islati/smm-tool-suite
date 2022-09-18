@@ -6,6 +6,10 @@ class Config(object):
     SQLALCHEMY_DATABASE_URI = "postgresql://islatisk@localhost:5432/vidbot"
     POSTS = []
 
+    SECRET_KEY = "i-never-need-to-worry-about-money-after-rap"
+    CACHE_TYPE = "SimpleCache"
+    CACHE_DEFAULT_TIMEOUT = 300
+
     TAGS = [
         ('[ytdesc]', lambda vidbot: vidbot.yt_vid.description),
         ('[yttitle]', lambda vidbot: vidbot.yt_vid.title),

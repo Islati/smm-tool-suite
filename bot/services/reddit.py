@@ -37,7 +37,20 @@ class RedditClient(object):
 
         return {"Authorization": f"bearer {self._oauth_token}", "User-Agent": "VidBot/0.1 by Skreet.ca"}
 
-    def get_posts(self, subreddit, limit=10):
+    def get_posts(self, subreddit, limit=10, sort_method="hot"):
+        _subr = self.reddit.subreddit(subreddit)
+        match sort_method:
+            case "hot":
+                return _subr.hot(limit=limit)
+            case "new":
+                return _subr.new(limit=limit)
+            case "top":
+                return _subr.top(limit=limit)
+            case "controversial":
+                return _subr.controversial(limit=limit)
+            case "rising", "trending":
+                return _subr.rising(limit=limit)
+
         return self.reddit.subreddit(subreddit).hot(limit=limit)
 
 
