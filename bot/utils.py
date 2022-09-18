@@ -152,6 +152,8 @@ def post_to_social(platforms: list, social_media_post: SocialMediaPost, thumbnai
                          headers={'Authorization': f'Bearer {current_app.config.get("AYRSHARE_API_KEY")}'},
                          json=post_data)
 
+    status_code = resp.status_code
+    response_text = resp.text
     if resp.status_code != 200:
         return False, "", resp.status_code, resp.text
 
@@ -162,7 +164,7 @@ def post_to_social(platforms: list, social_media_post: SocialMediaPost, thumbnai
 
     if resp['status'] == 'scheduled':
         # todo implement check for data about post urls from ayrshare api when this is retrieved on UI somewhere
-        return True, api_id, resp.status_code, f"Successfully scheduled for {date_time.slang_time()} to {', '.join(platforms)}"
+        return True, api_id, status_code, f"Successfully scheduled for {date_time.slang_time()} to {', '.join(platforms)}"
     elif resp['status'] == 'success':
         post_ids = resp['postIds']
         for post in post_ids:
@@ -173,9 +175,9 @@ def post_to_social(platforms: list, social_media_post: SocialMediaPost, thumbnai
             social_media_post.published_data.append(published_data)
             published_data.save(commit=True)
 
-        return True, api_id, resp.status_code, f"Successfully posted to {', '.join(platforms)}"
+        return True, api_id, status_code, f"Successfully posted to {', '.join(platforms)}"
 
-    return False, "", resp.status_code, resp.text
+    return False, "", status_code, response_text
 
 
 def upload_file_to_cloud(local_file_path, video_clip: VideoClip = None, image: ImageDb = None):
@@ -201,7 +203,7 @@ def upload_file_to_cloud(local_file_path, video_clip: VideoClip = None, image: I
 
     # retrieve the information
     req = requests.get("https://app.ayrshare.com/api/media/uploadUrl",
-                       headers={'Authorization': f'Bearer {current_app.config.get("MAILTRAP_API_KEY")}'},
+                       headers={'Authorization': f'Bearer {current_app.config.get("AYRSHARE_API_KEY")}'},
                        params={'contentType': content_type,
                                'fileName': f"{local_file_path}"})
 

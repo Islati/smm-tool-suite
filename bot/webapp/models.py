@@ -225,9 +225,6 @@ class SocialMediaPost(SurrogatePK, TimeMixin, SqlModel):
 
     hashtags = db.relationship("Hashtag", secondary=post_hashtags_table, backref="posts")
 
-    published_data = db.relationship("PublishedSocialMediaPost",
-                                     backref=backref("social_media_post", uselist=False), uselist=True)
-
     def __init__(self, api_id, platforms, post_time, media_upload, hashtags, post_url=None, title=None,
                  description=None):
         super().__init__(api_id=api_id, platforms=platforms,
