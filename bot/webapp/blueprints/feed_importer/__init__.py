@@ -17,7 +17,7 @@ feed_importer = Blueprint('feed_importer', __name__, template_folder='templates'
 
 # todo implement saved subreddits for reposts.
 
-def _get_posts(subreddit, sort_method, limit):
+def _get_posts(subreddit, sort_method, limit, allow_reposts=False):
     posts = reddit_client.get_posts(subreddit, limit=limit, sort_method=sort_method)
 
     # Skip non-image posts & images we've posted before.
@@ -26,8 +26,13 @@ def _get_posts(subreddit, sort_method, limit):
         if post.is_self:
             continue
 
+        repost = False
+
         if RedditRepost.has_been_posted(post.id):
-            continue
+            if not allow_reposts:
+                continue
+
+            repost = True
 
         _posts.append(
             dict(
@@ -38,7 +43,9 @@ def _get_posts(subreddit, sort_method, limit):
                 title=post.title,
                 score=post.score,
                 created_utc=post.created_utc,
-                author=post.author.name if post.author else "")
+                author=post.author.name if post.author else "",
+                repost=repost
+            )
         )
 
     return _posts
@@ -48,9 +55,11 @@ def _get_posts(subreddit, sort_method, limit):
 @feed_importer.route('/')
 def index(subreddit="rap", sort_method="hot"):
     limit = request.args.get('limit', 100)
+    reposts = request.args.get('reposts', 'true')
     session['subreddit'] = subreddit
     session['sort_method'] = sort_method
-    return render_template("feed_importer.html", posts=_get_posts(subreddit, sort_method=sort_method, limit=limit),
+    return render_template("feed_importer.html",
+                           posts=_get_posts(subreddit, sort_method=sort_method, limit=limit, allow_reposts=True if reposts == 'true' else False),
                            subreddit=subreddit, sort_method=sort_method, limit=limit)
 
 
@@ -115,7 +124,9 @@ def schedule():
         # post to socials.s
     # return json for UI display.
     flash("Successfully created post!", "success")
-    reddit_repost = RedditRepost(post_id=post.id, title=post.title, url=post.url)
+    reddit_repost = RedditRepost.query.filter_by(post_id=post.id).first()
+    if reddit_repost is None:
+        reddit_repost = RedditRepost(post_id=post.id, title=post.title, url=post.url)
     reddit_repost.save(commit=True)
     return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
 

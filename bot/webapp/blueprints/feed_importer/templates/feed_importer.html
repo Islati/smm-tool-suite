@@ -8,10 +8,6 @@
             overflow: scroll;
             -webkit-overflow-scrolling: touch;
         }
-
-        .list-group-item {
-
-        }
     </style>
 {% endblock %}
 
@@ -35,9 +31,10 @@
         var postPermalink = "";
         var postsSelected = []; //list of posts that will be pushed.
         var platforms = "facebook";
+        var isRepost = false;
 
 
-        function setActivePost(id, title, body, author, date, upvotes, url, permalink) {
+        function setActivePost(id, title, body, author, date, upvotes, url, permalink, repost) {
             console.log(`Setting active post to ${id} ${title} ${author} http://reddit.com${permalink}`);
             postId = id;
             postTitle = title;
@@ -47,6 +44,8 @@
             postUpvotes = upvotes;
             postMediaUrl = url;
             postPermalink = permalink;
+            isRepost = repost;
+            console.log(`Post is a repost: ${isRepost}`);
 
             // Call ui Render
             updateActivePost();
@@ -125,8 +124,8 @@
             <div class="col-sm-4">
                 <div class="list-group">
                     {% for post in posts %}
-                        <div class="list-group-item list-group-item-action"
-                             onclick="setActivePost(`{{ post.id }}`,`{{ post.title }}`,``,`{{ post.author }}`,`{{ post.created_utc }}`,{{ post.score }},`{{ post.url }}`,`{{ post.permalink }}`)">
+                        <a class="list-group-item list-group-item-action"
+                           onclick="setActivePost(`{{ post.id }}`,`{{ post.title }}`,``,`{{ post.author }}`,`{{ post.created_utc }}`,{{ post.score }},`{{ post.url }}`,`{{ post.permalink }}`,{% if post.repost %}true{% else %}false{% endif %})">
                             <div class="row">
                                 <div class="col-sm-4">
                                     <img src="{{ post.thumbnail }}" class="img-thumbnail img-rounded" height="150"
@@ -146,17 +145,20 @@
                                         </div>
                                         <div class="row">
                                             <div class="col">
-                                            <span class="badge bg-primary rounded-pill"><i
+                                            <span class="badge bg-primary badge-pill"><i
                                                     class="bi bi-person"></i>{{ post.created_utc | slangtime }}</span>
-                                                <span class="badge bg-info rounded-pill"><i
+                                                <span class="badge bg-info badge-pill"><i
                                                         class="bi bi-person"></i>{{ post.author }}</span>
+
+                                                {% if post.repost %}
+                                                    <span class="badge bg-warning rounded-pill">⚠️Posted</span>{% endif %}
                                             </div>
                                         </div>
                                     </div>
 
                                 </div>
                             </div>
-                        </div>
+                        </a>
                     {% endfor %}
                 </div>
             </div>
