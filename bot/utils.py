@@ -87,6 +87,15 @@ def is_video_file(file):
     return "video" in mimetype or 'gif' in mimetype
 
 
+def get_post_history(last_days=30, last_records=None,status=None):
+    """
+    Gets the post history for the user (via ayrshare).
+    :return:
+    """
+    resp = requests.get('https:/app.ayrshare.com/api/history',
+                        headers={'Authorization': f'Bearer {current_app.config.get("AYRSHARE_API_KEY")}'})
+
+
 def post_to_social(platforms: list, social_media_post: SocialMediaPost, thumbnail=None, tags=None,
                    youtube_video_visibility="public", instagram_post_to_reels=True,
                    instagram_share_reels_to_feed=True) -> tuple[bool, str, int, str]:

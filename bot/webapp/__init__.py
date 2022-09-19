@@ -3,7 +3,7 @@ import datetime
 import maya
 import pytz
 from flask import Flask, current_app, render_template
-from bot.webapp.extensions import db, migrations, mail, caching
+from bot.webapp.extensions import db, migrations, mail, caching, cors
 
 from bot.webapp.blueprints.feed_importer import feed_importer as feed_importer_blueprint
 
@@ -25,6 +25,7 @@ def create_app(configuration=None) -> Flask:
     migrations.init_app(app=app, db=db)
     mail.init_app(app=app)
     caching.init_app(app=app)
+    cors.init_app(app=app)
 
     from bot.webapp import models
     app.app_context().push()

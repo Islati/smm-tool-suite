@@ -1,10 +1,11 @@
 import mimetypes
+import pprint
 import traceback
 from urllib.parse import urlparse
 import os
 
 import requests
-from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, flash, redirect, url_for, session
 from praw.reddit import Submission
 
 from bot.services.reddit import client as reddit_client
@@ -14,9 +15,43 @@ feed_importer = Blueprint('feed_importer', __name__, template_folder='templates'
                           url_prefix='/feed-importer')
 
 
-@feed_importer.route('/', methods=['GET'])
-def index():
-    return load("rapmemes", "hot")
+# todo implement saved subreddits for reposts.
+
+def _get_posts(subreddit, sort_method, limit):
+    posts = reddit_client.get_posts(subreddit, limit=limit, sort_method=sort_method)
+
+    # Skip non-image posts & images we've posted before.
+    _posts = []
+    for post in posts:
+        if post.is_self:
+            continue
+
+        if RedditRepost.has_been_posted(post.id):
+            continue
+
+        _posts.append(
+            dict(
+                id=post.id,
+                url=post.url,
+                permalink=post.permalink,
+                thumbnail=post.thumbnail,
+                title=post.title,
+                score=post.score,
+                created_utc=post.created_utc,
+                author=post.author.name if post.author else "")
+        )
+
+    return _posts
+
+
+@feed_importer.route('/<subreddit>/<sort_method>', methods=['GET'])
+@feed_importer.route('/')
+def index(subreddit="rap", sort_method="hot"):
+    limit = request.args.get('limit', 100)
+    session['subreddit'] = subreddit
+    session['sort_method'] = sort_method
+    return render_template("feed_importer.html", posts=_get_posts(subreddit, sort_method=sort_method, limit=limit),
+                           subreddit=subreddit, sort_method=sort_method, limit=limit)
 
 
 valid_sort_methods = ('hot', 'new', 'rising', 'controversial', 'top')
@@ -34,6 +69,9 @@ def schedule():
     platforms = _json['platforms']
     tags = _json['tags'] if 'tags' in _json.keys() else []
 
+    subreddit = session.get('subreddit', 'rap')
+    sort_method = session.get('sort_method', 'hot')
+
     # Get submission from reddit API (PRAW object)
     post = Submission(reddit=reddit_client.reddit, id=post_id)
 
@@ -46,7 +84,7 @@ def schedule():
     downloaded_file = download_image(media_url, output_file_name)
     if downloaded_file is None or not os.path.exists(downloaded_file):
         flash("Failed to download image", "error")
-        return redirect(url_for('feed_importer.index'))
+        return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
 
     # try to upload without downloading.
     image_record = ImageDb(url=media_url, title=post.title, description=body)
@@ -56,7 +94,7 @@ def schedule():
 
     if media_upload is None:
         flash("Failed to upload image", "error")
-        return redirect(url_for('feed_importer.index'))
+        return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
 
     os.remove(downloaded_file)  # remove downloaded file
 
@@ -73,37 +111,27 @@ def schedule():
     if not success:
         flash(f"Failed to post to social media.\nStatus Code: {status_code}\nResponse: {response_text}",
               category="error")
-        return redirect(url_for('feed_importer.index'))
+        return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
         # post to socials.s
     # return json for UI display.
     flash("Successfully created post!", "success")
     reddit_repost = RedditRepost(post_id=post.id, title=post.title, url=post.url)
     reddit_repost.save(commit=True)
-    return redirect(url_for('feed_importer.index'))
+    return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
 
 
 @feed_importer.route('/load/', methods=['POST'])
-def load(subreddit=None, sort_method=None):
-    print("Request Form Data: ", request.form)
-    # print("Request Json Data: ", request.json)
-    print("Requet data", request.data)
-    if subreddit is None and sort_method is None:
-        try:
-            subreddit_string = request.form.get('subreddit')
-            sort_method_selected = request.form.get('sortMethod')
-            print(f"Subreddit: {subreddit_string}, Sort Method: {sort_method_selected}")
-        except Exception as ex:
-            subreddit_string = subreddit
-            sort_method_selected = sort_method
-    else:
-        subreddit_string = subreddit
-        sort_method_selected = sort_method
+def load(subreddit=None, sort_method=None, limit=100):
+    try:
+        _json = request.get_json(force=True)
+        print(_json)
+        subreddit_string = _json['subreddit']
+        sort_method_selected = _json['sortType']
+        limit = _json['limit']
+    except:
+        subreddit_string = request.form.get('subreddit', subreddit)
+        sort_method_selected = request.form.get('sortMethod', sort_method)
+        limit = request.form.get('limit', limit)
+        print(f"subreddit: {subreddit_string}, sort_method: {sort_method_selected}")
 
-    posts = reddit_client.get_posts(subreddit=subreddit_string, limit=50)
-
-    # Skip non-image posts & images we've posted before.
-    _posts = [post for post in posts if
-              (post.is_self is False and RedditRepost.has_been_posted(post.id) is False)]  # link only filter.
-
-    return render_template('feed_importer.html', subreddit=subreddit_string, posts=_posts,
-                           sort_method=sort_method_selected)
+    return jsonify({'posts': _get_posts(subreddit_string, sort_method=sort_method_selected, limit=limit)})
