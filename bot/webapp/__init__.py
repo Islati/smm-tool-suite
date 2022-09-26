@@ -1,11 +1,18 @@
 import datetime
+import os
 
 import maya
 import pytz
-from flask import Flask, current_app, render_template
+from flask import Flask, current_app, render_template, after_this_request, make_response, request, Request, \
+    send_from_directory
+from flask_cors import CORS
+
+from bot import utils
 from bot.webapp.extensions import db, migrations, mail, caching, cors
 
 from bot.webapp.blueprints.feed_importer import feed_importer as feed_importer_blueprint
+
+from flask import current_app
 
 
 def debug(message):
@@ -21,11 +28,16 @@ def create_app(configuration=None) -> Flask:
     app = Flask(__name__, template_folder='templates', static_folder='static')
     app.config.from_object(configuration)
 
+    app.config['CORS_HEADERS'] = 'Content-Type'
+
     db.init_app(app=app)
     migrations.init_app(app=app, db=db)
     mail.init_app(app=app)
     caching.init_app(app=app)
-    cors.init_app(app=app)
+    cors.init_app(app=app,
+                  resources={r"*": {"origins": "*"}},
+                  headers="Content-Type")
+    print("Cors initialized")
 
     from bot.webapp import models
     app.app_context().push()
@@ -51,14 +63,13 @@ def create_app(configuration=None) -> Flask:
 
     @app.route('/')
     def index():
-        return render_template('index.html')
+        return render_template("vindex.html")
+        # return send_from_directory(os.path.join(app.static_folder, 'frontend', 'dist'), 'vindex.html')
 
     @app.template_filter('slangtime')
     def slangtime(s):
         return maya.MayaDT.from_datetime(datetime.datetime.fromtimestamp(float(s), tz=pytz.utc)).slang_time()
 
     app.register_blueprint(feed_importer_blueprint)
-
-    app.logger.info("Flask Application Created")
 
     return app

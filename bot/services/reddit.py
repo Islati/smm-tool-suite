@@ -38,6 +38,7 @@ class RedditClient(object):
         return {"Authorization": f"bearer {self._oauth_token}", "User-Agent": "VidBot/0.1 by Skreet.ca"}
 
     def get_posts(self, subreddit, limit=10, sort_method="hot"):
+        assert subreddit is not None
         match sort_method:
             case "hot":
                 return self.reddit.subreddit(subreddit).hot(limit=limit)

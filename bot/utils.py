@@ -12,7 +12,7 @@ from pytube import YouTube
 from bot.webapp.models import VideoClip, ImageDb, MediaUpload, SocialMediaPost, PublishedSocialMediaPost
 from bot.services.tiktok import TikTokDownloader
 
-from flask import current_app
+from flask import current_app, make_response
 
 
 def get_maya_time(time):
@@ -71,7 +71,8 @@ def compile_keywords(post_description: str = None, youtube_video: YouTube = None
 def is_image_file(file):
     if file is None:
         return False
-    return 'image' in mimetypes.guess_type(file)[0]
+    types = mimetypes.guess_type(file)
+    return types[0] is not None and 'image' in types[0]
 
 
 def is_video_file(file):
@@ -83,7 +84,12 @@ def is_video_file(file):
     if file is None:
         return False
 
-    mimetype = mimetypes.guess_type(file)[0]
+    types = mimetypes.guess_type(file)
+
+    if types[0] is None:
+        return None
+
+    mimetype = types[0]
     return "video" in mimetype or 'gif' in mimetype
 
 
@@ -342,3 +348,11 @@ def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
     #        "-map", "0", "-vcodec", "h264", "-acodec", "aac", targetname]
 
     # subprocess_call(cmd)
+
+def add_headers(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    response.headers['Vary'] = "Origin"
+    print("Headers assigned before returning response")
+    return response

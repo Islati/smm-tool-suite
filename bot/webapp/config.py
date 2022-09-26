@@ -10,6 +10,10 @@ class Config(object):
     CACHE_TYPE = "SimpleCache"
     CACHE_DEFAULT_TIMEOUT = 300
 
+    FLASK_DEBUG=1
+
+    CORS_HEADERS = "Content-Type"
+
     TAGS = [
         ('[ytdesc]', lambda vidbot: vidbot.yt_vid.description),
         ('[yttitle]', lambda vidbot: vidbot.yt_vid.title),
