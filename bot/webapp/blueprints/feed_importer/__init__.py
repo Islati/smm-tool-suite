@@ -61,7 +61,6 @@ def _get_posts(subreddit, sort_method, limit, allow_reposts=True):
 
 
 @feed_importer.route('/<subreddit>/<sort_method>', methods=['GET'])
-@feed_importer.route('/')
 def index(subreddit="rap", sort_method="hot"):
     limit = request.args.get('limit', 100)
     reposts = request.args.get('reposts', 'true')

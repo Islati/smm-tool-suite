@@ -187,6 +187,7 @@ export default {
   methods: {
     schedulePost(item) {
       console.log(`Scheduling post ${item.id}`);
+      let _post = null;
       for (let post of this.subredditFeedItems) {
         if (post.id !== item.id) {
           continue;
@@ -195,8 +196,33 @@ export default {
         post.repost = true;
         this.snackbarMessage = `Post scheduled for reposting to ${this.postPlatforms} ${this.postWhen}`;
         this.snackbarToast = true;
+        _post = post;
         break;
       }
+
+      if (_post === null) {
+        return;
+      }
+
+      let self = this;
+      $.ajax({
+        url: "http://localhost:5000/feed-importer/schedule/",
+        type: "POST",
+        crossDomain: true,
+        data: {
+          subreddit: this.feedSubreddit,
+          sortType: this.feedSortType
+        },
+        dataType: "json",
+        success: function (data) {
+          self.subredditFeedItems = data['posts'];
+          self.setActiveItem(data['posts'][0]);
+        },
+        error: function (xhr, status) {
+          console.log(xhr);
+          console.log(status);
+        }
+      });
     },
     setActiveItem(item) {
       console.log(`Setting active item: ${item.title}`);
