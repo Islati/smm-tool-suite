@@ -60,7 +60,7 @@
         </v-dialog>
       </v-row>
 
-      <v-row v-if="this.subredditFeedItems.length > 0" no-gutters>
+      <v-row v-if="this.subredditFeedItems.length > 0" no-gutter>
         <v-col cols="5" style="height: 500px; overflow-y: scroll;">
           <v-row v-for="item in this.subredditFeedItems" :key="item.id" @click="() => setActiveItem(item)">
             <v-col cols="4">
@@ -86,7 +86,7 @@
             </v-col>
           </v-row>
         </v-col>
-        <v-col cols="7" v-if="this.activeItem">
+        <v-col cols="7">
           <v-row>
             <v-col cols="10" offset="1" class="text-center">
               <h3 class="text-blue-lighten-1">{{ this.activeItem.title }}</h3>
@@ -210,13 +210,13 @@ export default {
         type: "POST",
         crossDomain: true,
         data: {
-          subreddit: this.feedSubreddit,
-          sortType: this.feedSortType
+          subreddit: self.feedSubreddit,
+          sortType: self.feedSortType
         },
         dataType: "json",
         success: function (data) {
-          self.subredditFeedItems = data['posts'];
-          self.setActiveItem(data['posts'][0]);
+          console.log(`${data}`);
+
         },
         error: function (xhr, status) {
           console.log(xhr);
@@ -251,7 +251,9 @@ export default {
         dataType: "json",
         success: function (data) {
           self.subredditFeedItems = data['posts'];
+          console.log(`Loaded ${self.subredditFeedItems.length} items`);
           self.setActiveItem(data['posts'][0]);
+          console.log(`Active Item: ${self.activeItem}`);
         },
         error: function (xhr, status) {
           console.log(xhr);
