@@ -84,11 +84,10 @@ def schedule():
     except:
         _json = request.get_json(force=True)
 
-
     post_id = _json['postId']
     media_url = _json['postUrl']
     body = _json['body']
-    time = _json['time']
+    postWhen = _json['time']
     platforms = _json['platforms']
     tags = _json['tags'] if 'tags' in _json.keys() else []
 
@@ -106,8 +105,8 @@ def schedule():
     # download image
     downloaded_file = download_image(media_url, output_file_name)
     if downloaded_file is None or not os.path.exists(downloaded_file):
-        flash("Failed to download image", "error")
-        return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
+        return jsonify({"error": "Failed to download image."}), 400
+        # return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
 
     # try to upload without downloading.
     image_record = ImageDb(url=media_url, title=post.title, description=body)
@@ -116,13 +115,12 @@ def schedule():
     media_upload = upload_file_to_cloud(downloaded_file, image=image_record)
 
     if media_upload is None:
-        flash("Failed to upload image", "error")
-        return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
+        return jsonify({"error": "Failed to upload image."}), 400
 
     os.remove(downloaded_file)  # remove downloaded file
 
     social_media_post = SocialMediaPost(None, platforms=platforms,
-                                        post_time=get_maya_time(time).datetime(to_timezone='UTC'),
+                                        post_time=get_maya_time(postWhen).datetime(to_timezone='UTC'),
                                         media_upload=media_upload, hashtags=tags, title=post.title,
                                         description=body)
 
@@ -130,19 +128,19 @@ def schedule():
         platforms.split(',') if (',' in platforms and isinstance(platforms, str)) else [platforms],
         social_media_post)  # all that's required for an image post.
 
+    social_media_post.api_id = api_key
+
     social_media_post.save(commit=True)
     if not success:
-        flash(f"Failed to post to social media.\nStatus Code: {status_code}\nResponse: {response_text}",
-              category="error")
-        return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
-        # post to socials.s
+        return jsonify({"error": f"Failed to post to social media. {response_text}"}), 400
     # return json for UI display.
-    flash("Successfully created post!", "success")
     reddit_repost = RedditRepost.query.filter_by(post_id=post.id).first()
     if reddit_repost is None:
         reddit_repost = RedditRepost(post_id=post.id, title=post.title, url=post.url)
     reddit_repost.save(commit=True)
-    return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
+    return jsonify({"status": "success", "message": f"Post scheduled {postWhen}"}), 200
+
+
 #
 # @feed_importer.after_request
 # def handle_after_request(f):
@@ -152,9 +150,8 @@ def schedule():
 #     print("Updated Headers")
 #     return f
 
-@feed_importer.route('/load/', methods=['POST','OPTIONS'])
+@feed_importer.route('/load/', methods=['POST', 'OPTIONS'])
 def load(subreddit=None, sort_method=None, limit=100):
-
     if request.method == "OPTIONS":
         return build_cors_preflight_response()
     try:
@@ -170,6 +167,8 @@ def load(subreddit=None, sort_method=None, limit=100):
     response = jsonify({'posts': _get_posts(subreddit_string, sort_method=sort_method_selected, limit=limit)})
 
     return utils.add_headers(response)
+
+
 def build_cors_preflight_response():
     response = make_response()
     response.headers.add("Access-Control-Allow-Origin", "*")

@@ -142,18 +142,26 @@
       </v-row>
     </v-form>
     <v-row>
-      <v-snackbar v-model="snackbarToast" timeout="5000">
-        <span class="text-subtitle-1">{{ snackbarMessage }}</span>
+      <v-snackbar v-model="snackbarToast" timeout="5000" :color="snackbarColor">
+        <v-row>
+          <v-col cols="8">
+            <span class="text-subtitle-1">{{ snackbarMessage }}</span>
 
-        <v-btn
-            color="blue"
-            text
-            v-bind="attrs"
-            class="ml-2"
-            @click="this.snackbarToast = false"
-        >
-          Close
-        </v-btn>
+          </v-col>
+          <v-col cols="4">
+            <v-btn
+                color="white"
+                text
+                v-bind="attrs"
+                class="ml-2"
+                @click="this.snackbarToast = false"
+            >
+              Close
+            </v-btn>
+
+          </v-col>
+        </v-row>
+
       </v-snackbar>
     </v-row>
   </v-container>
@@ -183,6 +191,7 @@ export default {
     postPlatforms: "facebook,twitter",
     snackbarToast: false, //whether or not the snackbar is showing.
     snackbarMessage: "", //the message to show in the snackbar.
+    snackbarColor: "success"
   }),
   methods: {
     schedulePost(item) {
@@ -193,14 +202,14 @@ export default {
           continue;
         }
 
-        post.repost = true;
-        this.snackbarMessage = `Post scheduled for reposting to ${this.postPlatforms} ${this.postWhen}`;
-        this.snackbarToast = true;
+        // this.snackbarMessage = `Post scheduled for reposting to ${this.postPlatforms} ${this.postWhen}`;
+        // this.snackbarToast = true;
         _post = post;
         break;
       }
 
       if (_post === null) {
+        console.error(`Unable to find post ${item.id} in subreddit feed items.`);
         return;
       }
 
@@ -210,17 +219,29 @@ export default {
         type: "POST",
         crossDomain: true,
         data: {
+          postId: _post.id,
+          postUrl: _post.url,
+          body: self.postDescription,
+          time: self.postWhen,
+          platforms: self.postPlatforms,
+          tags: [],
           subreddit: self.feedSubreddit,
           sortType: self.feedSortType
         },
         dataType: "json",
         success: function (data) {
-          console.log(`${data}`);
-
+          self.snackbarColor = "success"
+          self.snackbarToast = true;
+          self.snackbarMessage = data['message']
+          _post.repost = true;
         },
         error: function (xhr, status) {
+          console.log(`Error: ${status}`);
           console.log(xhr);
           console.log(status);
+          self.snackbarToast = true;
+          self.snackbarMessage = xhr['message']
+          self.snackbarColor = "red"
         }
       });
     },
