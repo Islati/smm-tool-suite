@@ -133,6 +133,9 @@ def schedule():
     social_media_post.save(commit=True)
     if not success:
         return jsonify({"error": f"Failed to post to social media. {response_text}"}), 400
+
+    #todo implement source platform & check if it's reddit / facebook / etc.
+
     # return json for UI display.
     reddit_repost = RedditRepost.query.filter_by(post_id=post.id).first()
     if reddit_repost is None:
