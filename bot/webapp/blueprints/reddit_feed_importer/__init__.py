@@ -13,7 +13,7 @@ from bot import utils
 from bot.services.reddit import client as reddit_client
 from bot.webapp.models import RedditRepost, ImageDb, SocialMediaPost
 
-feed_importer = Blueprint('feed_importer', __name__, template_folder='templates', static_folder='static',
+feed_importer = Blueprint('reddit_feed_importer', __name__, template_folder='templates', static_folder='static',
                           url_prefix='/feed-importer')
 
 
@@ -60,19 +60,15 @@ def _get_posts(subreddit, sort_method, limit, allow_reposts=True):
     return _posts
 
 
-@feed_importer.route('/<subreddit>/<sort_method>', methods=['GET'])
-def index(subreddit="rap", sort_method="hot"):
-    limit = request.args.get('limit', 100)
-    reposts = request.args.get('reposts', 'true')
-    session['subreddit'] = subreddit
-    session['sort_method'] = sort_method
-    return render_template("feed_importer.html",
-                           posts=_get_posts(subreddit, sort_method=sort_method, limit=limit,
-                                            allow_reposts=True if reposts == 'true' else False),
-                           subreddit=subreddit, sort_method=sort_method, limit=limit)
+@feed_importer.route('/', methods=['GET', 'OPTIONS'])
+def index():
+    if request.method == "OPTIONS":
+        return build_cors_preflight_response()
+
+    return jsonify({'status': 'Success', 'message': 'Feed Importer'})
 
 
-valid_sort_methods = ('hot', 'new', 'rising', 'controversial', 'top')
+reddit_valid_sort_methods = ('hot', 'new', 'rising', 'controversial', 'top')
 
 
 @feed_importer.route('/schedule/', methods=['POST'])
@@ -106,7 +102,7 @@ def schedule():
     downloaded_file = download_image(media_url, output_file_name)
     if downloaded_file is None or not os.path.exists(downloaded_file):
         return jsonify({"error": "Failed to download image."}), 400
-        # return redirect(url_for('feed_importer.index', subreddit=subreddit, sort_method=sort_method))
+        # return redirect(url_for('reddit_feed_importer.index', subreddit=subreddit, sort_method=sort_method))
 
     # try to upload without downloading.
     image_record = ImageDb(url=media_url, title=post.title, description=body)
@@ -134,7 +130,7 @@ def schedule():
     if not success:
         return jsonify({"error": f"Failed to post to social media. {response_text}"}), 400
 
-    #todo implement source platform & check if it's reddit / facebook / etc.
+    # todo implement source platform & check if it's reddit / facebook / etc.
 
     # return json for UI display.
     reddit_repost = RedditRepost.query.filter_by(post_id=post.id).first()
@@ -143,17 +139,8 @@ def schedule():
     reddit_repost.save(commit=True)
     return jsonify({"status": "success", "message": f"Post scheduled {postWhen}"}), 200
 
-
-#
-# @feed_importer.after_request
-# def handle_after_request(f):
-#     f.headers['Access-Control-Allow-Origin'] = '*'
-#     f.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-#     f.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
-#     print("Updated Headers")
-#     return f
-
 @feed_importer.route('/load/', methods=['POST', 'OPTIONS'])
+@cross_origin()
 def load(subreddit=None, sort_method=None, limit=100):
     if request.method == "OPTIONS":
         return build_cors_preflight_response()
@@ -169,7 +156,7 @@ def load(subreddit=None, sort_method=None, limit=100):
 
     response = jsonify({'posts': _get_posts(subreddit_string, sort_method=sort_method_selected, limit=limit)})
 
-    return utils.add_headers(response)
+    return response
 
 
 def build_cors_preflight_response():

@@ -99,7 +99,7 @@ def get_post_history(last_days=30, last_records=None,status=None):
     :return:
     """
     resp = requests.get('https:/app.ayrshare.com/api/history',
-                        headers={'Authorization': f'Bearer {current_app.config.get("AYRSHARE_API_KEY")}'})
+                        headers={'Authorization': f'Bearer {current_app.config.get("AYRSHARE_API_KEY")}'}).text
 
 
 def post_to_social(platforms: list, social_media_post: SocialMediaPost, thumbnail=None, tags=None,

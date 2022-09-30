@@ -6,11 +6,11 @@
         Skreet <small class="text-grey-lighten-1">(Admin)</small>
       </v-app-bar-title>
       <v-btn to="/feed-importer">
-        <v-icon>mdi-format-list-bulleted-triangle</v-icon>
-        <span class="text-center">Feed Importer</span>
+        <v-icon>mdi-reddit</v-icon>
+        <span class="text-center">Reddit Feed Importer</span>
       </v-btn>
 
-      <v-btn to="#" class="mx-2">
+      <v-btn to="/calendar" class="mx-2">
         <v-icon>mdi-calendar</v-icon>
         <span class="text-center">Post Calendar</span>
       </v-btn>

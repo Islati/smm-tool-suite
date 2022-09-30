@@ -185,7 +185,7 @@ export default {
     this.loadSubredditFeed();
   },
   data: () => ({
-    feedSubreddit: "rapmemes",
+    feedSubreddit: "memes",
     feedSortType: "hot",
     sortTypes: ['hot', 'new', 'top', 'rising', 'controversial'],
     subredditFeedItems: [],
