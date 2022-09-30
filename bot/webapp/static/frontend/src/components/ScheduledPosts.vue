@@ -45,8 +45,7 @@
         </v-toolbar>
       </v-sheet>
       <v-sheet height="600">
-        <v-calendar ref="calendar" v-model="focus" color="primary" :events="events" :event-color="getEventColor"
-                    :type="type" @click:event="showEvent" @click:more="viewDay" @click:date="viewDay">
+        <v-calendar ref="calendar" :events="events">
 
         </v-calendar>
         <v-menu v-model="selectedOpen" :close-on-content-click="false" :activator="selectedElement" offset-x>
