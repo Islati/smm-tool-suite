@@ -175,20 +175,23 @@ def redo(clip_id=None, description: str = None, skip_duplicate_check=False, sche
     :return:
     """
     redo_clip(clip_id=clip_id, description=description, skip_duplicate_check=skip_duplicate_check, schedule=schedule,
-              platforms=platforms, title=title,last_clip=last_clip)
+              platforms=platforms, title=title, last_clip=last_clip)
 
 
 @cli.command('history')
-@click.option('--last-days', '-d', "last_days", default=30, help="Number of days to look back.")
+@click.option('--last-days', '-d', "last_days", default="30 days ago",
+              help="Time (slang. e.g. 2 days ago) to look back")
+@click.option('--next-days', "-n", "next_days", default="in 1 month",
+              help="Time (slang. eg: in 1 month) to look ahead.")
 @click.option('--last-records', '-r', "last_records", default=100, help="Number of records to look back.")
-def history_print(last_days, last_records):
+def history_print(last_days, last_records, next_days):
     """
     View post history from the Ayrshare api (messy)
     :param last_days:
     :param last_records:
     :return:
     """
-    history(last_days=last_days, last_records=last_records)
+    history(last_days=last_days, record_limit=last_records, max_time_in_future=next_days)
 
 
 @cli.command('post_info')
