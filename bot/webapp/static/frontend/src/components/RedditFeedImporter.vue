@@ -210,6 +210,11 @@ export default {
     snackbarColor: "success"
   }),
   methods: {
+    showSnackbar(message, color) {
+      this.snackbarMessage = message;
+      this.snackbarColor = color;
+      this.snackbarToast = true;
+    },
     schedulePost(item) {
       console.log(`Scheduling post ${item.id}`);
       let _post = null;
@@ -230,6 +235,7 @@ export default {
       }
 
       let self = this;
+      this.showSnackbar(`Scheduling post for reposting to ${this.postPlatforms} ${this.postWhen}`, "info");
       $.ajax({
         url: "http://localhost:5000/feed-importer/schedule/",
         type: "POST",
@@ -246,18 +252,14 @@ export default {
         },
         dataType: "json",
         success: function (data) {
-          self.snackbarColor = "success"
-          self.snackbarToast = true;
-          self.snackbarMessage = data['message']
+          self.showSnackbar(data['message'], "success");
           _post.repost = true;
         },
         error: function (xhr, status) {
           console.log(`Error: ${status}`);
           console.log(xhr);
           console.log(status);
-          self.snackbarToast = true;
-          self.snackbarMessage = xhr['message']
-          self.snackbarColor = "red"
+          self.showSnackbar(xhr['message'], "red");
         }
       });
     },
