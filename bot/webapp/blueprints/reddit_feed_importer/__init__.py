@@ -22,6 +22,10 @@ feed_importer = Blueprint('reddit_feed_importer', __name__, template_folder='tem
 def _get_posts(subreddit, sort_method, limit, allow_reposts=True):
     posts = reddit_client.get_posts(subreddit, limit=limit, sort_method=sort_method)
 
+    if posts is None:
+        print(f"Failed to get posts from {subreddit} | sort_method={sort_method} | limit={limit}")
+        return []
+
     # Skip non-image posts & images we've posted before.
     _posts = []
     for post in posts:
@@ -61,6 +65,7 @@ def _get_posts(subreddit, sort_method, limit, allow_reposts=True):
 
 
 @feed_importer.route('/', methods=['GET', 'OPTIONS'])
+@cross_origin()
 def index():
     if request.method == "OPTIONS":
         return build_cors_preflight_response()
@@ -71,6 +76,7 @@ def index():
 reddit_valid_sort_methods = ('hot', 'new', 'rising', 'controversial', 'top')
 
 
+@cross_origin()
 @feed_importer.route('/schedule/', methods=['POST'])
 def schedule():
     from bot.utils import upload_file_to_cloud, post_to_social, download_image, get_maya_time
@@ -139,22 +145,21 @@ def schedule():
     reddit_repost.save(commit=True)
     return jsonify({"status": "success", "message": f"Post scheduled {postWhen}"}), 200
 
-@feed_importer.route('/load/', methods=['POST', 'OPTIONS'])
+
 @cross_origin()
+@feed_importer.route('/load/', methods=['POST', 'OPTIONS'])
 def load(subreddit=None, sort_method=None, limit=100):
     if request.method == "OPTIONS":
         return build_cors_preflight_response()
-    try:
-        _json = request.get_json(force=True)
-        subreddit_string = _json['subreddit']
-        sort_method_selected = _json['sortType']
-        limit = _json['limit']
-    except:
-        subreddit_string = request.form.get('subreddit', subreddit)
-        sort_method_selected = request.form.get('sortMethod', sort_method)
-        limit = request.form.get('limit', limit)
 
-    response = jsonify({'posts': _get_posts(subreddit_string, sort_method=sort_method_selected, limit=limit)})
+    _json = request.get_json(force=True)
+    subreddit_string = _json['subreddit']
+    sort_method_selected = _json['sortType']
+    limit = _json.get('limit', 500)
+
+    posts = _get_posts(subreddit_string, sort_method_selected, limit)
+
+    response = jsonify({'posts': posts})
 
     return response
 

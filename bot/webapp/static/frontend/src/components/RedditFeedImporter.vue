@@ -5,11 +5,11 @@
     </v-row>
     <!--    Subreddit Feed Load -->
 
-<!--    Todo Implement grid based feed importer,
-              with images having modal popover
-              to schedule the posts & allow multiple
-              sources to be easily shown in one place.
--->
+    <!--    Todo Implement grid based feed importer,
+                  with images having modal popover
+                  to schedule the posts & allow multiple
+                  sources to be easily shown in one place.
+    -->
     <v-form ref="form">
       <v-row>
         <v-col cols="3">
@@ -139,6 +139,16 @@
         </v-col>
       </v-row>
 
+      <v-row
+          v-else-if="this.loadAttempt === true && this.subredditFeedItems.length === 0">
+        <v-col cols="12">
+          <v-alert type="error" border="left" prominent>
+            No feed items to load.
+            <small>(Check console for errors)</small>
+          </v-alert>
+        </v-col>
+      </v-row>
+
       <v-row v-else>
         <v-col cols="12">
           <v-alert type="info" border="left" prominent>
@@ -160,8 +170,7 @@
                 text
                 v-bind="attrs"
                 class="ml-2"
-                @click="this.snackbarToast = false"
-            >
+                @click="this.snackbarToast = false">
               Close
             </v-btn>
 
@@ -190,6 +199,7 @@ export default {
     sortTypes: ['hot', 'new', 'top', 'rising', 'controversial'],
     subredditFeedItems: [],
     activeItem: null,
+    loadAttempt: false,
     configDialog: false,
     postWhen: "in 4 hours",
     postDescriptionDefault: "🎵 Stream Islati @ http://skreet.ca - PreSave \"Islati\" for October 30th Release 🎶",
@@ -253,6 +263,10 @@ export default {
     },
     setActiveItem(item) {
       console.log(`Setting active item: ${item.title}`);
+      if (item === null || item === undefined) {
+        this.activeItem = null;
+        return;
+      }
       this.activeItem = item;
       this.postDescription = `${item.title}\n${this.postDescriptionDefault}`;
     },
@@ -271,14 +285,22 @@ export default {
         url: "http://localhost:5000/feed-importer/load/",
         type: "POST",
         crossDomain: true,
-        data: {
+        data: JSON.stringify({
           subreddit: this.feedSubreddit,
-          sortType: this.feedSortType
-        },
+          sortType: this.feedSortType,
+          limit: 100
+        }),
         dataType: "json",
         success: function (data) {
           self.subredditFeedItems = data['posts'];
           console.log(`Loaded ${self.subredditFeedItems.length} items`);
+          let firstItem = self.subredditFeedItems[0];
+          if (firstItem === undefined || firstItem === null) {
+            self.activeItem = null;
+            console.log(`No items to load. Returned json from request:`);
+            console.log(data);
+            return;
+          }
           self.setActiveItem(data['posts'][0]);
           console.log(`Active Item: ${self.activeItem}`);
         },
@@ -286,6 +308,8 @@ export default {
           console.log(xhr);
           console.log(status);
         }
+      }).always(function () {
+        self.loadAttempt = true;
       });
     },
     formatTime(time) {
