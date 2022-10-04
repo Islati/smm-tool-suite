@@ -51,7 +51,7 @@ class RedditClient(object):
             case "rising", "trending":
                 return self.reddit.subreddit(subreddit).rising(limit=limit)
 
-        return self.reddit.subreddit(subreddit).hot(limit=limit)
+        return None
 
 
 client = RedditClient()

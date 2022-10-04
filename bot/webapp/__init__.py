@@ -8,9 +8,10 @@ from flask import Flask, current_app, render_template, after_this_request, make_
 from flask_cors import CORS
 
 from bot import utils
+from bot.webapp.blueprints.post_calendar import post_calendar
 from bot.webapp.extensions import db, migrations, mail, caching, cors
 
-from bot.webapp.blueprints.feed_importer import feed_importer as feed_importer_blueprint
+from bot.webapp.blueprints.reddit_feed_importer import feed_importer as feed_importer_blueprint
 
 from flask import current_app
 
@@ -60,16 +61,7 @@ def create_app(configuration=None) -> Flask:
     }
 
     app.config.update(mail_settings)
-
-    @app.route('/')
-    def index():
-        return render_template("vindex.html")
-        # return send_from_directory(os.path.join(app.static_folder, 'frontend', 'dist'), 'vindex.html')
-
-    @app.template_filter('slangtime')
-    def slangtime(s):
-        return maya.MayaDT.from_datetime(datetime.datetime.fromtimestamp(float(s), tz=pytz.utc)).slang_time()
-
     app.register_blueprint(feed_importer_blueprint)
+    app.register_blueprint(post_calendar)
 
     return app

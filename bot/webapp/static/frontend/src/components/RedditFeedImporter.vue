@@ -4,6 +4,12 @@
       <h4>Feed Importer</h4>
     </v-row>
     <!--    Subreddit Feed Load -->
+
+<!--    Todo Implement grid based feed importer,
+              with images having modal popover
+              to schedule the posts & allow multiple
+              sources to be easily shown in one place.
+-->
     <v-form ref="form">
       <v-row>
         <v-col cols="3">
@@ -179,7 +185,7 @@ export default {
     this.loadSubredditFeed();
   },
   data: () => ({
-    feedSubreddit: "rapmemes",
+    feedSubreddit: "memes",
     feedSortType: "hot",
     sortTypes: ['hot', 'new', 'top', 'rising', 'controversial'],
     subredditFeedItems: [],
