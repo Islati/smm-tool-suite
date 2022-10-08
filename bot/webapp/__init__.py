@@ -5,10 +5,8 @@ import maya
 import pytz
 from flask import Flask, current_app, render_template, after_this_request, make_response, request, Request, \
     send_from_directory
-from flask_cors import CORS
-
-from bot import utils
 from bot.webapp.blueprints.post_calendar import post_calendar
+from bot.webapp.config import ProductionConfig
 from bot.webapp.extensions import db, migrations, mail, caching, cors
 
 from bot.webapp.blueprints.reddit_feed_importer import feed_importer as feed_importer_blueprint
@@ -26,7 +24,7 @@ def debug(message):
 
 
 def create_app(configuration=None) -> Flask:
-    app = Flask(__name__, template_folder='templates', static_folder='static')
+    app = Flask(__name__)
     app.config.from_object(configuration)
 
     app.config['CORS_HEADERS'] = 'Content-Type'
@@ -51,17 +49,13 @@ def create_app(configuration=None) -> Flask:
             'mail': mail
         }
 
-    mail_settings = {
-        "MAIL_SERVER": 'smtp.gmail.com',
-        "MAIL_PORT": 465,
-        "MAIL_USE_TLS": False,
-        "MAIL_USE_SSL": True,
-        "MAIL_USERNAME": "islati.sk@gmail.com",
-        "MAIL_PASSWORD": "32buttcheeks!"
-    }
+    # only create the admin panel out of production
+    if not isinstance(configuration, ProductionConfig):
+        print("Initializing Blueprints for the admin panel.")
 
-    app.config.update(mail_settings)
-    app.register_blueprint(feed_importer_blueprint)
-    app.register_blueprint(post_calendar)
+        app.register_blueprint(feed_importer_blueprint)
+        app.register_blueprint(post_calendar)
+
+
 
     return app

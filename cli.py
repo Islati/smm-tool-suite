@@ -23,7 +23,7 @@ from bot.webapp.config import DefaultConfig
 from cli_commands import cli
 
 # todo implement file cleanup.
-# todo implement feeds to download images from & repost them
+# todo implement feed to download images from & repost them
 # implement instagram reel download & repost to platforms.
 
 config = DefaultConfig()

@@ -5,7 +5,7 @@
         <v-icon>mdi-bomb</v-icon>
         Skreet <small class="text-grey-lighten-1">(Admin)</small>
       </v-app-bar-title>
-      <v-btn to="/feed-importer">
+      <v-btn to="/feed-importer" class="float-left" variant="plain">
         <v-icon>mdi-reddit</v-icon>
         <span class="text-center">Reddit Feed Importer</span>
       </v-btn>

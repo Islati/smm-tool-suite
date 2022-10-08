@@ -15,6 +15,35 @@ post_hashtags_table = db.Table('post_hashtags',
                                db.Column('hashtag_id', db.Integer, db.ForeignKey('hashtags.id')))
 
 
+class User(SqlModel, TimeMixin, SurrogatePK):
+    __tablename__ = 'users'
+    username = db.Column(db.String, unique=True, nullable=False)
+
+    twitter_url = db.Column(db.String, unique=True, nullable=True)
+    instagram_url = db.Column(db.String, unique=True, nullable=True)
+    facebook_url = db.Column(db.String, unique=True, nullable=True)
+    youtube_url = db.Column(db.String, unique=True, nullable=True)
+    spotify_url = db.Column(db.String, unique=True, nullable=True)
+    soundcloud_url = db.Column(db.String, unique=True, nullable=True)
+
+    active_feed = db.Column(db.Boolean, default=True)
+    feed_priority = db.Column(db.Float, default=1, nullable=False)  # lower = higher priority
+
+    def __init__(self, username, twitter_url=None, instagram_url=None, facebook_url=None, youtube_url=None,
+                 spotify_url=None, soundcloud_url=None, active_feed=True, feed_priority=1):
+        super().__init__(
+            username=username,
+            twitter_url=twitter_url,
+            instagram_url=instagram_url,
+            facebook_url=facebook_url,
+            youtube_url=youtube_url,
+            spotify_url=spotify_url,
+            soundcloud_url=soundcloud_url,
+            active_feed=active_feed,
+            feed_priority=feed_priority
+        )
+
+
 class RedditRepost(SqlModel, SurrogatePK, TimeMixin):
     """
     Model represents a repost (scraped from reddit)

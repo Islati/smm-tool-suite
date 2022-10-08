@@ -5,12 +5,13 @@ class Config(object):
     Debug = True,
     SQLALCHEMY_DATABASE_URI = "postgresql://islatisk@localhost:5432/vidbot"
     POSTS = []
-
+    FEED_PAGE_SIZE = 200
+    YOUTUBE_API_KEY = "AIzaSyA4ZepVzWEwtrRrTapHKGCCFBe9bgvpiIY"
     SECRET_KEY = "i-never-need-to-worry-about-money-after-rap"
     CACHE_TYPE = "SimpleCache"
     CACHE_DEFAULT_TIMEOUT = 300
 
-    FLASK_DEBUG=1
+    FLASK_DEBUG = 1
 
     CORS_HEADERS = "Content-Type"
 
@@ -89,3 +90,8 @@ class DefaultConfig(Config):
             'mediaCaptions': '[desc] \n 🎶 Music @ http://skreet.ca 🔗 Like, Share, Follow & Comment \n[viddesc] [hashtags]'
         }
     }
+
+
+class ProductionConfig(Config):
+    Debug = False
+    SQLALCHEMY_DATABASE_URI = "postgresql://islatisk@localhost:5432/vidbot"
