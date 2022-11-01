@@ -1,7 +1,6 @@
-# Social Manager (CLI)
-Complete social media automation suite.
-
-## Features
+# SMM Automation CLI Suite
+Complete social media automation suite. Intended & proven to increase fanbase retention through content strategy.
+Tools will not strategize for you, but help in executing said strategy.
 
 
 ### Automated shortform video content.
