@@ -6,8 +6,8 @@ class Config(object):
     SQLALCHEMY_DATABASE_URI = "postgresql://islatisk@localhost:5432/vidbot"
     POSTS = []
     FEED_PAGE_SIZE = 200
-    YOUTUBE_API_KEY = "AIzaSyA4ZepVzWEwtrRrTapHKGCCFBe9bgvpiIY"
-    SECRET_KEY = "i-never-need-to-worry-about-money-after-rap"
+    YOUTUBE_API_KEY = "<your_api_key>"
+    SECRET_KEY = "<secret_key>"
     CACHE_TYPE = "SimpleCache"
     CACHE_DEFAULT_TIMEOUT = 300
 
@@ -26,7 +26,7 @@ class Config(object):
     MAIL_USE_SSL = True
     MAIL_DEBUG = False
     MAIL_USERNAME = "apikey"
-    MAIL_PASSWORD = "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"
+    MAIL_PASSWORD = "<password for mail api>"
     MAIL_DEFAULT_SENDER = None
     MAIL_MAX_EMAILS = None
     MAIL_SUPPRESS_SEND = False
@@ -34,16 +34,16 @@ class Config(object):
 
     EMAIL_VALIDATION_TIMEOUT = 3
 
-    AYRSHARE_API_KEY = "W8ZMC7Q-PFBMXSB-JPDK8HC-NQPQCXH"
-    SENDGRID_API_KEY = "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"
+    AYRSHARE_API_KEY = "<ayrshare api key>"
+    SENDGRID_API_KEY = "<sendgrid api key>"
 
     # Debounce.io API Key
-    EMAIL_VALIDATION_API_KEY = '631d2d6088fd2'
+    EMAIL_VALIDATION_API_KEY = '<debounce.io key>'
 
-    REDDIT_USERNAME = "IsBaee"
-    REDDIT_PASSWORD = "32buttcheeks!"
-    REDDIT_CLIENT_ID = "FAAbzSPTbCtFSTKKAN4rPQ"
-    REDDIT_CLIENT_SECRET = "Isdfp4hbf5hpoiTXJKwVaCJWT6W3hg"
+    REDDIT_USERNAME = ""
+    REDDIT_PASSWORD = ""
+    REDDIT_CLIENT_ID = ""
+    REDDIT_CLIENT_SECRET = ""
 
 
 class DefaultConfig(Config):
