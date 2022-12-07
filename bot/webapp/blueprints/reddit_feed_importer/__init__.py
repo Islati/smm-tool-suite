@@ -67,9 +67,6 @@ def _get_posts(subreddit, sort_method, limit, allow_reposts=True):
 @feed_importer.route('/', methods=['GET', 'OPTIONS'])
 @cross_origin()
 def index():
-    if request.method == "OPTIONS":
-        return build_cors_preflight_response()
-
     return jsonify({'status': 'Success', 'message': 'Feed Importer'})
 
 
@@ -149,9 +146,6 @@ def schedule():
 @cross_origin()
 @feed_importer.route('/load/', methods=['POST', 'OPTIONS'])
 def load(subreddit=None, sort_method=None, limit=100):
-    if request.method == "OPTIONS":
-        return build_cors_preflight_response()
-
     _json = request.get_json(force=True)
     subreddit_string = _json['subreddit']
     sort_method_selected = _json['sortType']

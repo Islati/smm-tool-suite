@@ -93,7 +93,7 @@ def is_video_file(file):
     return "video" in mimetype or 'gif' in mimetype
 
 
-def get_post_history(last_days=30, last_records=None,status=None):
+def get_post_history(last_days=30, last_records=None, status=None):
     """
     Gets the post history for the user (via ayrshare).
     :return:
@@ -349,10 +349,12 @@ def ffmpeg_extract_subclip(filename, t1, t2, targetname=None):
 
     # subprocess_call(cmd)
 
+
 def add_headers(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE')
+    response.headers.add('Access-Control-Allow-Credentials', 'false')
+    response.headers.add('Access-Control-Allow-Headers',
+                         'Content-Type, Authorization, Depth, User-Agent, X-File-Size, X-Requested-With, If-Modified-Since, X-File-Name, Cache-Control')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, PUT, POST, DELETE, OPTIONS')
     response.headers['Vary'] = "Origin"
-    print("Headers assigned before returning response")
     return response

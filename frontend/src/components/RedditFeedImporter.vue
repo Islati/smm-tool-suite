@@ -9,6 +9,8 @@
                   with images having modal popover
                   to schedule the posts & allow multiple
                   sources to be easily shown in one place.
+
+            TODO Implement FETCH instead of jquery get to use no-cors mode (attempted compat)
     -->
     <v-form ref="form">
       <v-row>
