@@ -145,7 +145,7 @@ def mail_send(template, skip_duplicates=True,
             body=text_template_content,  # todo render & replace with jinja2 template
             html=mail_message.html,
             recipients=[user['email']],
-            sender=("Islati", "islati@skreet.ca")
+            sender=("Islati", "islati@skreet.ca") #todo replace with configurable sender.
         )
 
         sent_mail_message = False
