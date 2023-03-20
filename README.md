@@ -1,3 +1,5 @@
+<img width="1425" alt="Screen Shot 2022-11-01 at 4 27 10 AM" src="https://user-images.githubusercontent.com/2342656/199177124-4f0d88d8-13de-476f-b9f6-d6ba1564ab00.png">
+
 # SMM Automation CLI Suite
 Complete social media automation suite. Intended & proven to increase fanbase retention through content strategy.
 Tools will not strategize for you, but help in executing said strategy.
@@ -5,7 +7,6 @@ Tools will not strategize for you, but help in executing said strategy.
 # Reddit Reposter 
 _Collect and repost images (memes, etc) from reddit feeds to drive engagement on other platforms customizing the posts for your own presentation_
 
-<img width="1425" alt="Screen Shot 2022-11-01 at 4 27 10 AM" src="https://user-images.githubusercontent.com/2342656/199177124-4f0d88d8-13de-476f-b9f6-d6ba1564ab00.png">
 
 _Run with:_ ```python gui.py``` to execute the server, and navigate into the frontend and do ```npm run serve``` after installing to run & serve the development server.
 
